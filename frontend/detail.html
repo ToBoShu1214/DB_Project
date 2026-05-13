@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧長照 - 專業醫護儀表板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .med-item { border-left: 4px solid #dee2e6; transition: 0.3s; }
+        .med-item.taken { border-left-color: #198754; background-color: #f1f8f5; opacity: 0.8; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-secondary shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand" onclick="location.href='/dashboard.html'" style="cursor:pointer">⬅️ 返回主控台</a>
+            <span class="text-white fw-bold" id="residentTitle">醫療數據監控中心</span>
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="row text-center mb-3" id="healthStats"></div>
+                <div class="card shadow-sm p-4 mb-4">
+                    <h5 class="fw-bold mb-4 text-primary">📈 近期血壓/心跳趨勢</h5>
+                    <div class="chart-container"><canvas id="healthChart"></canvas></div>
+                </div>
+
+                <div class="card shadow-sm p-4 mb-4 border-primary border-top border-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">📅 生理紀錄清單</h5>
+                        <button class="btn btn-sm btn-outline-primary fw-bold" onclick="addNewRecordRow()">➕ 新增一列</button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle" id="healthRecordTable">
+                            <thead class="table-light">
+                                <tr class="small text-muted">
+                                    <th style="width: 25%;">量測日期/時間</th>
+                                    <th>收縮壓(高)</th>
+                                    <th>舒張壓(低)</th>
+                                    <th>心跳</th>
+                                    <th>備註</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="healthEditBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div class="text-end mt-2"><small class="text-muted d-block mb-2">※ 填寫完畢後請點擊該列的「儲存」按鈕</small></div>
+                </div>
+
+                <!-- 🚀 護理進接紀錄區塊 -->
+                <div class="card shadow-sm p-4 mt-4 border-secondary border-top border-3">
+                    <h5 class="fw-bold mb-4 text-secondary">📝 護理進接紀錄 (Nursing Progress Notes)</h5>
+                    <div class="mb-4">
+                        <textarea class="form-control mb-2 border-secondary" id="newNoteContent" rows="3" placeholder="在此撰寫住民的日常觀察紀錄 (例如：食慾、情緒、特殊狀況)..."></textarea>
+                        <div class="text-end">
+                            <button class="btn btn-secondary btn-sm fw-bold" onclick="saveNote()">儲存進接紀錄</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <div id="notesContainer" class="small">
+                        <div class="text-center text-muted py-3">讀取紀錄中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- 🚀 新增 ID 以便 JS 整塊隱藏 -->
+                <div id="doctorOrderSection" class="card shadow-sm p-4 mb-4 border-info border-top border-3">
+                    <h5 class="fw-bold mb-3 text-info">🏥 臨床病歷與醫囑</h5>
+                    <div id="medicalProfile">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="small fw-bold text-muted mb-0">慢性病史：</h6>
+                                <button class="btn btn-sm btn-link p-0 text-info fw-bold" style="font-size: 0.7rem; text-decoration: none;" onclick="openDiseaseModal()">➕ 管理</button>
+                            </div>
+                            <div id="diseaseTags" class="d-flex flex-wrap gap-1">
+                                <span class="badge bg-light text-dark border">讀取中...</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="small fw-bold text-muted mb-0">醫師原始醫囑：</h6>
+                                <button class="btn btn-sm btn-outline-primary" style="font-size: 0.7rem;" onclick="openMedModal()">➕ 開立醫囑</button>
+                            </div>
+                            <div id="orderHistory" class="small text-muted">
+                                尚無醫囑紀錄
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">💊 今日用藥任務</h5>
+                    </div>
+                    <div id="medList" class="small"></div>
+                </div>
+
+                <div class="card shadow-sm p-4 mb-4">
+                    <h5 class="fw-bold mb-3">📍 當前活動區域</h5>
+                    <div id="locDisplay" class="h5 text-success fw-bold">偵測中...</div>
+                </div>
+
+                <div class="card shadow-sm p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">👨‍👩‍👧 家屬聯絡</h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="openFamilyModal()">添加</button>
+                    </div>
+                    <div id="familyList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="medModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">開立醫師醫囑</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="medForm"><div class="mb-3"><label class="form-label">藥品名稱</label><input type="text" class="form-control" id="mName" required></div><div class="row"><div class="col mb-3"><label class="form-label">劑量</label><input type="text" class="form-control" id="mDosage" placeholder="例如: 1顆" required></div><div class="col mb-3"><label class="form-label">時段</label><select class="form-select" id="mSchedule"><option>早</option><option>中</option><option>晚</option><option>睡前</option></select></div></div><div class="mb-3"><label class="form-label">醫師囑咐 (病歷說明)</label><textarea class="form-control" id="mContent" rows="2" placeholder="例如: 飯後服用，注意過敏反應"></textarea></div></form></div><div class="modal-footer"><button class="btn btn-primary w-100" onclick="saveMed()">確認開立並發布</button></div></div></div></div>
+
+    <div class="modal fade" id="familyModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">家屬資料</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="f_form"><input type="hidden" id="f_id"><div class="mb-3"><label class="form-label">姓名</label><input type="text" class="form-control" id="famName" required></div><div class="mb-3"><label class="form-label">關係</label><input type="text" class="form-control" id="famRel" required></div><div class="mb-3"><label class="form-label">電話</label><input type="text" class="form-control" id="famPhone" required></div><div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="famEmergency"><label class="form-check-label">設為緊急聯絡人</label></div></form></div><div class="modal-footer"><button class="btn btn-danger me-auto" id="btnDelFam" style="display:none" onclick="deleteFamily()">刪除</button><button class="btn btn-primary" onclick="saveFamily()">儲存</button></div></div></div></div>
+
+    <div class="modal fade" id="diseaseModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">管理慢性病史</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+        <!-- 🚀 修改部分：加入閾值設定 -->
+        <div class="mb-4 p-3 bg-light rounded border border-info">
+            <label class="form-label fw-bold text-info small">⚙️ 個人化生理警報設定</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">血壓警戒值 (收縮壓)</span>
+                <input type="number" class="form-control" id="personalThreshold" placeholder="預設 140">
+                <button class="btn btn-info text-white" onclick="saveThreshold()">儲存設定</button>
+            </div>
+            <div class="form-text mt-1" style="font-size: 0.65rem;">※ 當收縮壓超過此數值時，系統會以紅字標註。</div>
+        </div>
+
+        <div class="mb-3"><label class="form-label small fw-bold">新增疾病紀錄</label><div class="input-group input-group-sm"><select class="form-select" id="diseaseSelect"></select><button class="btn btn-primary" onclick="addDisease()">新增</button></div></div><hr><h6 class="fw-bold small text-muted">目前病史 (點擊 ✖ 刪除)</h6><div id="currentDiseases" class="d-flex flex-wrap gap-2"></div></div></div></div></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const resId = urlParams.get('id');
+        let healthChart = null;
+
+        if(!resId) { alert("參數錯誤"); location.href='/dashboard.html'; }
+
+        // 初始化
+        window.onload = async function() {
+            try {
+                const rawRole = localStorage.getItem('role') || '未知';
+                console.log("當前登入角色:", rawRole);
+
+                // 🚀 改進：如果角色是護理師，直接隱藏「整塊」醫師病歷與醫囑區塊
+                if (rawRole.includes('護理') || rawRole.toLowerCase().includes('nurse')) {
+                    const docSection = document.getElementById('doctorOrderSection');
+                    if(docSection) docSection.style.display = 'none';
+                }
+
+                const res = await fetch(`/api/residents/${resId}`).then(r => {
+                    if (!r.ok) throw new Error("無法取得住民基本資料");
+                    return r.json();
+                });
+                if(res.data) document.getElementById('residentTitle').textContent = `監控中心：${res.data.FullName} (ID: #${res.data.ResidentID})`;
+                init();
+            } catch (e) {
+                console.error("載入失敗", e);
+                alert("系統連線失敗，請檢查後端服務是否啟動！");
+                location.href = '/dashboard.html';
+            }
+        };
+
+        // 🚀 修正：將讀取歷史表格的邏輯加入 init
+        async function init() {
+            try {
+                document.getElementById('healthEditBody').innerHTML = '<tr><td colspan="6" class="text-center">資料讀取中...</td></tr>';
+                
+                // 取得帶有閾值的歷史資料
+                const res = await fetch(`/api/residents/${resId}/health-history-v2`).then(r => {
+                    if (!r.ok) throw new Error("後端 API 連線失敗");
+                    return r.json();
+                });
+                
+                document.getElementById('healthEditBody').innerHTML = ''; // 清空
+                const threshold = res.threshold || 140;
+                
+                await loadHealthTable(res.data || [], threshold); // 1. 先把資料庫裡的舊資料印出來
+                addNewRecordRow();                          // 2. 然後在最上面補上一列空白的
+                
+                loadStats();
+                loadChart();
+                loadMedications();
+                loadMedicalProfile(); 
+                loadFamily();
+                loadLocation();
+                loadNotes(); // 🚀 新增：載入護理紀錄
+            } catch (e) {
+                console.error("初始化失敗", e);
+                document.getElementById('healthEditBody').innerHTML = `<tr><td colspan="6" class="text-center text-danger">⚠️ 系統連線錯誤：${e.message}</td></tr>`;
+            }
+        }
+
+        async function loadMedicalProfile() {
+            try {
+                const res = await fetch(`/api/residents/${resId}/medical-profile`).then(r => r.json());
+                const currentRole = localStorage.getItem('role') || '';
+                const isDoctor = currentRole.includes('醫師') || currentRole.includes('Doctor') || currentRole.includes('管理');
+                
+                // 1. 顯示慢性病標籤
+                const diseaseContainer = document.getElementById('diseaseTags');
+                if (res.diseases && res.diseases.length > 0) {
+                    diseaseContainer.innerHTML = res.diseases.map(d => 
+                        `<span class="badge bg-info text-dark border" title="建議閾值: ${d.DefaultBpThreshold}">${d.DiseaseName}</span>`
+                    ).join('');
+                } else {
+                    diseaseContainer.innerHTML = '<span class="text-muted small">無慢性病紀錄</span>';
+                }
+
+                // 2. 顯示醫囑紀錄
+                const orderContainer = document.getElementById('orderHistory');
+                if (res.orders && res.orders.length > 0) {
+                    orderContainer.innerHTML = res.orders.map(o => `
+                        <div class="border-start ps-2 mb-3 position-relative">
+                            <div class="fw-bold text-dark d-flex justify-content-between">
+                                <span>${o.MedName} <small>(${o.Dosage})</small></span>
+                                ${isDoctor ? `<button class="btn btn-sm text-danger p-0 fw-bold" onclick="deleteOrder(${o.OrderID})">✖</button>` : ''}
+                            </div>
+                            <div style="font-size: 0.7rem;">時段: ${o.Schedule} | 囑咐: ${o.OrderContent}</div>
+                            <div style="font-size: 0.65rem;" class="text-muted">${new Date(o.CreateTime).toLocaleString()}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    orderContainer.innerHTML = '尚無醫囑紀錄';
+                }
+            } catch (e) {
+                console.error("載入病歷失敗", e);
+            }
+        }
+
+        async function deleteOrder(orderId) {
+            if(confirm('確定要撤銷此項醫師醫囑嗎？')) {
+                const res = await fetch(`/api/medical-orders/${orderId}`, { method: 'DELETE' }).then(r => r.json());
+                if(res.status === 'success') {
+                    loadMedicalProfile();
+                    loadMedications();
+                }
+            }
+        }
+
+        // 🚀 新增：把歷史紀錄印回表格的函數，並根據閾值判斷顏色
+        async function loadHealthTable(historyData, threshold) {
+            const tbody = document.getElementById('healthEditBody');
+            
+            // 資料已經在後端排序為新到舊（或我們在這裡處理）
+            historyData.forEach(d => {
+                const row = document.createElement('tr');
+                
+                // 處理時間格式
+                const dateObj = new Date(d.RecordTime);
+                const tzoffset = dateObj.getTimezoneOffset() * 60000; 
+                const localISOTime = (new Date(dateObj.getTime() - tzoffset)).toISOString().slice(0, 16);
+                
+                // 判斷是否超標 (紅字)
+                const isHigh = d.SystolicBP > threshold;
+                const sysStyle = isHigh ? 'color: red; font-weight: bold;' : '';
+                const sysClass = isHigh ? 'border-danger' : 'text-muted';
+                
+                row.innerHTML = `
+                    <td><input type="datetime-local" class="form-control form-control-sm text-muted" value="${localISOTime}" disabled></td>
+                    <td><input type="number" class="form-control form-control-sm ${sysClass}" value="${d.SystolicBP}" style="${sysStyle}" disabled></td>
+                    <td><input type="number" class="form-control form-control-sm text-muted" value="${d.DiastolicBP}" disabled></td>
+                    <td><input type="number" class="form-control form-control-sm text-muted" value="${d.HeartRate}" disabled></td>
+                    <td><input type="text" class="form-control form-control-sm text-muted" value="${d.Notes || '無'}" disabled></td>
+                    <td><button class="btn btn-sm btn-secondary" disabled>${isHigh ? '⚠️ 超標' : '已歸檔'}</button></td>
+                `;
+                tbody.appendChild(row); 
+            });
+        }
+
+        function addNewRecordRow() {
+            const tbody = document.getElementById('healthEditBody');
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000; 
+            const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="datetime-local" class="form-control form-control-sm row-date border-primary" value="${localISOTime}"></td>
+                <td><input type="number" class="form-control form-control-sm row-sys border-primary" placeholder="mmHg"></td>
+                <td><input type="number" class="form-control form-control-sm row-dia border-primary" placeholder="mmHg"></td>
+                <td><input type="number" class="form-control form-control-sm row-hr border-primary" placeholder="bpm"></td>
+                <td><input type="text" class="form-control form-control-sm row-notes border-primary" placeholder="正常"></td>
+                <td>
+                    <button class="btn btn-sm btn-success fw-bold" onclick="saveRow(this)">儲存</button>
+                    <button class="btn btn-sm btn-link text-danger" onclick="this.parentElement.parentElement.remove()">清除</button>
+                </td>
+            `;
+            tbody.prepend(row); // 將可編輯的新列放在最上面
+        }
+
+        async function saveRow(btn) {
+            const row = btn.parentElement.parentElement;
+            const payload = {
+                ResidentID: parseInt(resId),
+                RecordTime: row.querySelector('.row-date').value.replace('T', ' ') + ':00', 
+                SystolicBP: parseInt(row.querySelector('.row-sys').value),
+                DiastolicBP: parseInt(row.querySelector('.row-dia').value),
+                HeartRate: parseInt(row.querySelector('.row-hr').value),
+                Notes: row.querySelector('.row-notes').value || "無"
+            };
+
+            if(!payload.SystolicBP || !payload.DiastolicBP || !payload.HeartRate) {
+                alert("請填寫完整的血壓與心跳數值！"); return;
+            }
+
+            try {
+                const response = await fetch('/api/health-records', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // 🚀 儲存成功後，直接重新初始化畫面，這樣就會自動鎖死舊資料並產生新的一行！
+                    init(); 
+                } else {
+                    alert('儲存失敗：' + result.message);
+                }
+            } catch (error) {
+                alert('系統發生連線錯誤！');
+            }
+        }
+
+        // --- 以下為圖表、用藥、位置與家屬管理邏輯 (保持不變) ---
+        async function loadChart() {
+            const res = await fetch(`/api/residents/${resId}/health-history`).then(r => r.json());
+            const ctx = document.getElementById('healthChart').getContext('2d');
+            const labels = res.data.map(d => new Date(d.RecordTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+            const sysData = res.data.map(d => d.SystolicBP);
+            const diaData = res.data.map(d => d.DiastolicBP);
+            const hrData = res.data.map(d => d.HeartRate);
+
+            if(healthChart) healthChart.destroy();
+            healthChart = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [ { label: '收縮壓', data: sysData, borderColor: '#dc3545', tension: 0.3, fill: false }, { label: '舒張壓', data: diaData, borderColor: '#ffc107', tension: 0.3, fill: false }, { label: '心跳', data: hrData, borderColor: '#0d6efd', borderDash: [5, 5], tension: 0.3, fill: false } ] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+        }
+
+        async function loadStats() {
+            const h = await fetch(`/api/reports/health-summary/${resId}`).then(r => r.json());
+            const s = h.summary;
+            document.getElementById('healthStats').innerHTML = `<div class="col"><div class="p-3 bg-white rounded shadow-sm"><h6>平均收縮壓</h6><h3 class="text-danger mb-0">${Math.round(s.AvgSystolic || 0)}</h3></div></div><div class="col"><div class="p-3 bg-white rounded shadow-sm"><h6>平均舒張壓</h6><h3 class="text-warning mb-0">${Math.round(s.AvgDiastolic || 0)}</h3></div></div><div class="col"><div class="p-3 bg-white rounded shadow-sm"><h6>平均心跳</h6><h3 class="text-primary mb-0">${Math.round(s.AvgHeartRate || 0)}</h3></div></div>`;
+        }
+
+        async function loadMedications() {
+            const res = await fetch(`/api/residents/${resId}/medications`).then(r => r.json());
+            const currentRole = localStorage.getItem('role') || '';
+            // 護理師、醫師、管理員都應該能看到確認按鈕
+            const canConfirm = currentRole.includes('護理') || currentRole.includes('醫師') || currentRole.includes('管理');
+
+            document.getElementById('medList').innerHTML = res.data.map(m => `
+                <div class="med-item p-2 mb-2 shadow-sm border rounded ${m.IsTaken ? 'taken' : ''}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-secondary me-1">${m.Schedule}</span>
+                            <strong class="${m.IsTaken ? 'text-decoration-line-through text-muted' : ''}">${m.MedName}</strong>
+                            <div class="text-muted" style="font-size:0.75rem">${m.Dosage}</div>
+                        </div>
+                        ${!m.IsTaken && canConfirm ? 
+                            `<button class="btn btn-sm btn-success fw-bold" style="font-size: 0.7rem;" onclick="takeMed(${m.RecordID})">確認服用</button>` : 
+                            (m.IsTaken ? '<span class="badge bg-success">✅ 已服用</span>' : '')
+                        }
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function saveMed() {
+            const body = { 
+                ResidentID: parseInt(resId), 
+                DoctorID: parseInt(localStorage.getItem('staffId') || 1),
+                MedName: document.getElementById('mName').value, 
+                Dosage: document.getElementById('mDosage').value, 
+                Schedule: document.getElementById('mSchedule').value,
+                OrderContent: document.getElementById('mContent').value || "例行醫囑"
+            };
+            
+            try {
+                const res = await fetch('/api/medical-orders', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify(body) 
+                }).then(r => r.json());
+
+                if (res.status === 'success') {
+                    bootstrap.Modal.getInstance(document.getElementById('medModal'))?.hide();
+                    loadMedications();    // 更新今日用藥
+                    loadMedicalProfile(); // 更新右側醫囑紀錄
+                } else {
+                    alert("儲存失敗: " + res.message);
+                }
+            } catch (e) {
+                alert("連線失敗");
+            }
+        }
+
+        async function takeMed(medId) {
+            if(confirm('確認已完成餵藥？')) {
+                await fetch(`/api/medications/${medId}/status`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ IsTaken: 1, Staff_ID: parseInt(localStorage.getItem('staffId')||1) }) });
+                loadMedications();
+            }
+        }
+
+        async function loadLocation() {
+            const l = await fetch(`/api/residents/${resId}/location`).then(r => r.json());
+            const display = document.getElementById('locDisplay');
+            if(l.data) { display.textContent = l.data.Zone; display.className = l.data.Zone === '樓梯間' ? 'h5 text-danger fw-bold blink' : 'h5 text-success fw-bold'; } 
+            else { display.textContent = '尚無紀錄'; }
+        }
+
+        async function loadFamily() {
+            const f = await fetch(`/api/residents/${resId}/family`).then(r => r.json());
+            document.getElementById('familyList').innerHTML = f.data.map(fm => `<div class="border-bottom py-2 d-flex justify-content-between align-items-center"><div><strong>${fm.FullName}</strong> <small>(${fm.Relationship})</small> ${fm.IsEmergencyContact ? '<span class="badge bg-danger">緊急</span>' : ''}<br><small class="text-muted">${fm.Phone}</small></div><button class="btn btn-sm btn-link" onclick='openFamilyModal(${JSON.stringify(fm)})'>編輯</button></div>`).join('');
+        }
+
+        function openFamilyModal(data = null) {
+            document.getElementById('f_form').reset();
+            document.getElementById('f_id').value = data ? data.FamilyID : '';
+            document.getElementById('btnDelFam').style.display = data ? 'block' : 'none';
+            if(data) { document.getElementById('famName').value = data.FullName; document.getElementById('famRel').value = data.Relationship; document.getElementById('famPhone').value = data.Phone; document.getElementById('famEmergency').checked = data.IsEmergencyContact === 1; }
+            new bootstrap.Modal('#familyModal').show();
+        }
+
+        async function saveFamily() {
+            const fid = document.getElementById('f_id').value;
+            const body = { ResidentID: parseInt(resId), FullName: document.getElementById('famName').value, Relationship: document.getElementById('famRel').value, Phone: document.getElementById('famPhone').value, IsEmergencyContact: document.getElementById('famEmergency').checked ? 1 : 0 };
+            const method = fid ? 'PUT' : 'POST';
+            const url = fid ? `/api/family-members/${fid}` : '/api/family-members';
+            await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
+            loadFamily();
+        }
+
+        async function deleteFamily() {
+            const fid = document.getElementById('f_id').value;
+            if(confirm('確定刪除此家屬？')) { await fetch(`/api/family-members/${fid}`, { method: 'DELETE' }); bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide(); loadFamily(); }
+        }
+
+        const openMedModal = () => new bootstrap.Modal('#medModal').show();
+
+        // 🚀 慢性病管理邏輯
+        async function openDiseaseModal() {
+            const diseaseModal = new bootstrap.Modal('#diseaseModal');
+            
+            // 0. 讀取當前住民的個人化閾值
+            const resInit = await fetch(`/api/residents/${resId}/health-history-v2`).then(r => r.json());
+            document.getElementById('personalThreshold').value = resInit.threshold || 140;
+
+            // 1. 載入疾病選單選項
+            const res = await fetch('/api/chronic-diseases').then(r => r.json());
+            const select = document.getElementById('diseaseSelect');
+            select.innerHTML = res.data.map(d => `<option value="${d.DiseaseID}">${d.DiseaseName}</option>`).join('');
+            
+            // 2. 顯示當前該住民已有的病史 (以便刪除)
+            renderCurrentDiseases();
+            diseaseModal.show();
+        }
+
+        async function saveThreshold() {
+            const val = document.getElementById('personalThreshold').value;
+            if(!val) return;
+
+            // 先取得住民基本資料，再更新回傳
+            const current = await fetch(`/api/residents/${resId}`).then(r => r.json());
+            const resData = current.data;
+            resData.BpThreshold = parseInt(val);
+
+            const resp = await fetch(`/api/residents/${resId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(resData)
+            }).then(r => r.json());
+
+            if(resp.status === 'success') {
+                alert("警戒值已更新！");
+                init(); // 重新整理列表，紅字判斷會立即生效
+            }
+        }
+
+        async function renderCurrentDiseases() {
+            const res = await fetch(`/api/residents/${resId}/medical-profile`).then(r => r.json());
+            const container = document.getElementById('currentDiseases');
+            if (res.diseases && res.diseases.length > 0) {
+                container.innerHTML = res.diseases.map(d => `
+                    <span class="badge bg-info text-dark border p-2" style="cursor:pointer;" onclick="removeDisease(${d.ProfileID})" title="點擊刪除">
+                        ${d.DiseaseName} ✖
+                    </span>
+                `).join('');
+            } else {
+                container.innerHTML = '<span class="text-muted small">尚無紀錄</span>';
+            }
+            // 同步更新主畫面的標籤
+            loadMedicalProfile(); 
+        }
+
+        async function addDisease() {
+            const diseaseId = document.getElementById('diseaseSelect').value;
+            await fetch(`/api/residents/${resId}/medical-profile`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ DiseaseID: parseInt(diseaseId) })
+            });
+            renderCurrentDiseases();
+        }
+
+        async function removeDisease(profileId) {
+            if(confirm('確定要移除這項病史紀錄嗎？')) {
+                await fetch(`/api/residents/medical-profile/${profileId}`, { method: 'DELETE' });
+                renderCurrentDiseases();
+            }
+        }
+
+        // 🚀 護理紀錄邏輯
+        async function loadNotes() {
+            const res = await fetch(`/api/residents/${resId}/notes`).then(r => r.json());
+            const container = document.getElementById('notesContainer');
+            if (res.data && res.data.length > 0) {
+                container.innerHTML = res.data.map(n => `
+                    <div class="mb-3 pb-2 border-bottom">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="fw-bold text-secondary">${n.StaffName} <small class="fw-normal">紀錄</small></span>
+                            <span class="text-muted" style="font-size: 0.7rem;">${new Date(n.CreateTime).toLocaleString()}</span>
+                        </div>
+                        <div class="text-dark">${n.NoteContent}</div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted py-3">尚無進接紀錄</div>';
+            }
+        }
+
+        async function saveNote() {
+            const content = document.getElementById('newNoteContent').value;
+            const staffId = localStorage.getItem('staffId');
+            if (!content) { alert("請輸入紀錄內容！"); return; }
+            if (!staffId) { alert("無法識別員工身分，請重新登入"); return; }
+
+            const res = await fetch(`/api/residents/${resId}/notes`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ StaffID: parseInt(staffId), NoteContent: content })
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                document.getElementById('newNoteContent').value = '';
+                loadNotes();
+            } else {
+                alert("儲存失敗");
+            }
+        }
+    </script>
+</body>
+</html>

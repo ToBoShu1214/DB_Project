@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧長照系統 - 超級主控台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .row-退宿 { opacity: 0.5; background-color: #eee; }
+        .row-住院 { background-color: #fff4f4; }
+        .row-請假 { background-color: #fffbef; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-primary shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold">🏥 智慧長照管理系統</a>
+            <div class="text-white"><span id="navUser" class="me-3 fw-bold"></span><button class="btn btn-outline-light btn-sm" onclick="logout()">登出</button></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <ul class="nav nav-tabs mb-4" id="mainTabs">
+            <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#panel-res">🏠 住民管理</button></li>
+            <li class="nav-item" id="nav-staff" style="display:none;"><button class="nav-link fw-bold text-danger" data-bs-toggle="tab" data-bs-target="#panel-staff" onclick="loadStaff()">🩺 員工帳號管理</button></li>
+            <li class="nav-item" id="nav-family" style="display:none;"><button class="nav-link fw-bold text-success" data-bs-toggle="tab" data-bs-target="#panel-family" onclick="loadAllFamily()">👨‍👩‍👧 家屬全域清單</button></li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="panel-res">
+                <div class="card shadow-sm p-4 mb-4">
+                    <div class="d-flex justify-content-between mb-3">
+                        <h4 class="fw-bold">住民名單</h4>
+                        <button class="btn btn-primary" onclick="openResModal()">➕ 新增住民</button>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-8"><input type="text" class="form-control" id="resSearch" placeholder="搜尋姓名、ID 或房號..." onkeyup="renderResTable()"></div>
+                        <div class="col-md-4"><select class="form-select" id="resFilter" onchange="renderResTable()"><option value="全部">全部狀態</option><option>入住中</option><option>住院</option><option>請假</option><option>退宿</option></select></div>
+                    </div>
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light"><tr><th>ID</th><th>姓名</th><th>房號</th><th>狀態</th><th class="text-end">操作</th></tr></thead>
+                        <tbody id="resTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="panel-staff">
+                <div class="card shadow-sm p-4">
+                    <div class="d-flex justify-content-between mb-3"><h4 class="fw-bold text-danger">員工帳號維護</h4><button class="btn btn-danger" onclick="openStaffModal()">➕ 新增員工</button></div>
+                    <table class="table align-middle">
+                        <thead class="table-light"><tr><th>姓名</th><th>帳號</th><th>職稱</th><th>狀態</th><th class="text-end">管理</th></tr></thead>
+                        <tbody id="staffTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="panel-family"><div class="card shadow-sm p-4"><h4 class="fw-bold text-success">全域家屬清單</h4><table class="table align-middle"><thead class="table-light"><tr><th>姓名</th><th>電話</th><th>關聯長輩</th><th>關係</th><th class="text-end">操作</th></tr></thead><tbody id="famTable"></tbody></table></div></div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="resModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header bg-primary text-white"><h5 class="modal-title">住民資料編輯</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><form id="resForm">
+            <input type="hidden" id="resId">
+            <div class="mb-2"><label class="form-label">姓名</label><input type="text" class="form-control" id="r_name" required></div>
+            <div class="row g-2 mb-2"><div class="col"><label class="form-label">性別</label><select class="form-select" id="r_sex"><option>男</option><option>女</option></select></div><div class="col"><label class="form-label">房號</label><input type="text" class="form-control" id="r_room" required></div></div>
+            <div class="mb-2"><label class="form-label">生日</label><input type="date" class="form-control" id="r_dob" required></div>
+            <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">照護等級</label><select class="form-select" id="r_level"><option>輕度</option><option>中度</option><option>重度</option></select></div>
+                <div class="col">
+                    <label class="form-label">目前狀態</label>
+                    <select class="form-select" id="r_status">
+                        <option>入住中</option><option>住院</option><option>請假</option><option>退宿</option>
+                    </select>
+                </div>
+            </div>
+        </form></div>
+        <div class="modal-footer"><button class="btn btn-secondary me-auto" id="btnDelRes" style="display:none" onclick="deleteRes()">🚨 徹底刪除</button><button class="btn btn-primary" onclick="saveRes()">儲存資料</button></div>
+    </div></div></div>
+
+    <div class="modal fade" id="staffModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header bg-danger text-white"><h5 class="modal-title">員工帳號編輯</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><form id="staffForm">
+            <input type="hidden" id="s_id">
+            <div class="mb-2"><label class="form-label">真實姓名</label><input type="text" class="form-control" id="s_name" required></div>
+            <div class="mb-2"><label class="form-label">登入帳號</label><input type="text" class="form-control" id="s_user" required></div>
+            <div class="mb-2"><label class="form-label">登入密碼</label><input type="text" class="form-control" id="s_pass" required></div>
+            <div class="row g-2">
+                <div class="col"><label class="form-label">職稱</label><select class="form-select" id="s_role"><option>護理師</option><option>醫師</option><option>管理員</option></select></div>
+                <div class="col"><label class="form-label">狀態</label><select class="form-select" id="s_approved"><option value="1">已開通</option><option value="0">審核中</option></select></div>
+            </div>
+        </form></div>
+        <div class="modal-footer"><button class="btn btn-outline-danger me-auto" id="btnDelStaff" style="display:none" onclick="deleteStaffConfirm()">🗑️ 刪除帳號</button><button class="btn btn-danger" onclick="saveStaff()">確定儲存</button></div>
+    </div></div></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const resModal = new bootstrap.Modal('#resModal');
+        const staffModal = new bootstrap.Modal('#staffModal');
+        const role = localStorage.getItem('role'); // 🚀 修正：讀取 'role' 而不是 'userRole'
+        const user = localStorage.getItem('userName');
+        if(!user) location.href='/staff_login.html';
+        document.getElementById('navUser').textContent = `${role}：${user}`;
+        if(role === '管理員') { document.getElementById('nav-staff').style.display='block'; document.getElementById('nav-family').style.display='block'; }
+
+        // --- 住民管理邏輯 ---
+        let allRes = [];
+        async function loadRes() {
+            const r = await fetch('/api/residents').then(res=>res.json());
+            allRes = r.data; renderResTable();
+        }
+        function renderResTable() {
+            const key = document.getElementById('resSearch').value.toLowerCase();
+            const filter = document.getElementById('resFilter').value;
+            const tbody = document.getElementById('resTable');
+            const filtered = allRes.filter(r => (r.FullName.includes(key) || r.ResidentID.toString().includes(key) || r.RoomNumber.includes(key)) && (filter==='全部' || r.Status===filter));
+            tbody.innerHTML = filtered.map(r => `
+                <tr class="row-${r.Status}">
+                    <td>#${r.ResidentID}</td>
+                    <td class="fw-bold">${r.FullName}</td>
+                    <td><span class="badge bg-info text-dark">${r.RoomNumber}</span></td>
+                    <td><span class="badge ${getStatusBadge(r.Status)}">${r.Status}</span></td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-secondary" onclick='openResModal(${JSON.stringify(r)})'>編輯</button>
+                        <button class="btn btn-sm btn-primary" onclick="location.href='/detail.html?id=${r.ResidentID}'">數據</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        function getStatusBadge(s){
+            if(s==='入住中') return 'bg-success';
+            if(s==='退宿') return 'bg-dark';
+            if(s==='住院') return 'bg-danger';
+            return 'bg-warning text-dark';
+        }
+        function openResModal(data=null){
+            document.getElementById('resForm').reset();
+            document.getElementById('resId').value = data ? data.ResidentID : '';
+            document.getElementById('btnDelRes').style.display = (data && role==='管理員') ? 'block' : 'none';
+            if(data){
+                document.getElementById('r_name').value = data.FullName;
+                document.getElementById('r_sex').value = data.Sex;
+                document.getElementById('r_room').value = data.RoomNumber;
+                document.getElementById('r_dob').value = data.DateOfBirth;
+                document.getElementById('r_level').value = data.CareLevel;
+                document.getElementById('r_status').value = data.Status;
+            }
+            resModal.show();
+        }
+        async function saveRes(){
+            const id = document.getElementById('resId').value;
+            const body = { FullName:document.getElementById('r_name').value, Sex:document.getElementById('r_sex').value, DateOfBirth:document.getElementById('r_dob').value, CareLevel:document.getElementById('r_level').value, RoomNumber:document.getElementById('r_room').value, Status:document.getElementById('r_status').value };
+            await fetch(id?`/api/residents/${id}`:'/api/residents/single', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            resModal.hide(); loadRes();
+        }
+        async function deleteRes(){ if(confirm('警告：這將徹底從資料庫刪除此住民及所有關聯數據，確定？')) { await fetch(`/api/residents/${document.getElementById('resId').value}`, {method:'DELETE'}); resModal.hide(); loadRes(); } }
+
+        // --- 員工管理邏輯 (管理員專屬) ---
+        async function loadStaff() {
+            const r = await fetch('/api/staff').then(res=>res.json());
+            document.getElementById('staffTable').innerHTML = r.data.map(s => `
+                <tr>
+                    <td class="fw-bold">${s.RealName}</td>
+                    <td>${s.Username}</td>
+                    <td>${s.Role}</td>
+                    <td>${s.IsApproved?'<span class="text-success">已開通</span>':'<span class="text-danger">審核中</span>'}</td>
+                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick='openStaffModal(${JSON.stringify(s)})'>管理</button></td>
+                </tr>
+            `).join('');
+        }
+        function openStaffModal(data=null){
+            document.getElementById('staffForm').reset();
+            document.getElementById('s_id').value = data ? data.StaffID : '';
+            document.getElementById('btnDelStaff').style.display = data ? 'block' : 'none';
+            if(data){
+                document.getElementById('s_name').value = data.RealName;
+                document.getElementById('s_user').value = data.Username;
+                document.getElementById('s_pass').value = data.Password;
+                document.getElementById('s_role').value = data.Role;
+                document.getElementById('s_approved').value = data.IsApproved;
+            }
+            staffModal.show();
+        }
+        async function saveStaff(){
+            const id = document.getElementById('s_id').value;
+            const body = { RealName:document.getElementById('s_name').value, Username:document.getElementById('s_user').value, Password:document.getElementById('s_pass').value, Role:document.getElementById('s_role').value, IsApproved:parseInt(document.getElementById('s_approved').value) };
+            await fetch(id?`/api/staff/${id}`:'/api/staff', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            staffModal.hide(); loadStaff();
+        }
+        async function deleteStaffConfirm(){ if(confirm('確定刪除此員工帳號？')) { await fetch(`/api/staff/${document.getElementById('s_id').value}`, {method:'DELETE'}); staffModal.hide(); loadStaff(); } }
+
+        // --- 家屬管理 ---
+        async function loadAllFamily() {
+            const r = await fetch('/api/family-members').then(res=>res.json());
+            document.getElementById('famTable').innerHTML = r.data.map(f => `
+                <tr><td>${f.FullName}</td><td>${f.Phone}</td><td>#${f.ResidentID} ${f.ResidentName||'未知'}</td><td>${f.Relationship}</td><td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="deleteFam(${f.FamilyID})">刪除</button></td></tr>
+            `).join('');
+        }
+        async function deleteFam(id){ if(confirm('刪除家屬帳號？')) { await fetch(`/api/family-members/${id}`,{method:'DELETE'}); loadAllFamily(); } }
+
+        function logout(){ localStorage.clear(); location.href='/staff_login.html'; }
+        loadRes();
+    </script>
+</body>
+</html>

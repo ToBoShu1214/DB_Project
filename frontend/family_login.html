@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家屬入口</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #e9ecef; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .auth-card { width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); border-radius: 12px; background-color: white; overflow: hidden; }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 1055; }
+    </style>
+</head>
+<body>
+    <div class="toast-container"><div id="sysToast" class="toast align-items-center text-white border-0" role="alert"><div class="d-flex"><div class="toast-body fw-bold" id="toastMsg"></div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
+
+    <div class="auth-card">
+        <div class="bg-success text-white text-center py-4 position-relative">
+            <button class="btn btn-sm btn-outline-light position-absolute top-0 start-0 m-2" onclick="location.href='/'">返回</button>
+            <h4 class="mb-0 fw-bold">👨‍👩‍👧 家屬安心入口</h4>
+        </div>
+
+        <ul class="nav nav-tabs w-100 d-flex" role="tablist">
+            <li class="nav-item flex-fill text-center"><button class="nav-link w-100 active fw-bold text-success" data-bs-toggle="tab" data-bs-target="#login">登入</button></li>
+            <li class="nav-item flex-fill text-center"><button class="nav-link w-100 fw-bold text-muted" data-bs-toggle="tab" data-bs-target="#register">首次註冊</button></li>
+        </ul>
+
+        <div class="tab-content p-4">
+            <div class="tab-pane fade show active" id="login">
+                <form id="loginForm">
+                    <div class="mb-3"><label class="small fw-bold">手機號碼</label><input type="text" class="form-control" id="l_phone" required></div>
+                    <div class="mb-4"><label class="small fw-bold">密碼</label><input type="password" class="form-control" id="l_pass" required></div>
+                    <button type="submit" class="btn btn-success w-100 fw-bold">登入查看</button>
+                </form>
+            </div>
+            
+            <div class="tab-pane fade" id="register">
+                <form id="regForm">
+                    <div class="mb-3"><label class="small fw-bold">長輩系統編號 (請洽護理站)</label><input type="number" class="form-control" id="r_resId" required></div>
+                    <div class="row mb-3">
+                        <div class="col"><label class="small fw-bold">您的姓名</label><input type="text" class="form-control" id="r_name" required></div>
+                        <div class="col"><label class="small fw-bold">稱謂/關係</label><input type="text" class="form-control" id="r_rel" placeholder="例: 兒子" required></div>
+                    </div>
+                    <div class="mb-3"><label class="small fw-bold">手機號碼 (作為登入帳號)</label><input type="text" class="form-control" id="r_phone" required></div>
+                    <div class="mb-4"><label class="small fw-bold">設定密碼</label><input type="password" class="form-control" id="r_pass" required></div>
+                    <button type="submit" class="btn btn-secondary w-100 fw-bold">註冊帳號</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showToast(msg, type='success'){ const t=document.getElementById('sysToast'); t.className=`toast align-items-center text-white border-0 bg-${type}`; document.getElementById('toastMsg').textContent=msg; new bootstrap.Toast(t).show(); }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const res = await fetch('/api/family/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Phone: document.getElementById('l_phone').value, Password: document.getElementById('l_pass').value})}).then(r=>r.json());
+            if(res.status==='success'){ localStorage.setItem('familyToken', res.user_info.FamilyID); localStorage.setItem('targetResident', res.user_info.ResidentID); showToast(res.message, 'success'); setTimeout(()=>location.href='/family_dashboard.html', 1000); }
+            else showToast(res.message || res.detail, 'danger');
+        });
+
+        document.getElementById('regForm').addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const body = { ResidentID: parseInt(document.getElementById('r_resId').value), FullName: document.getElementById('r_name').value, Relationship: document.getElementById('r_rel').value, Phone: document.getElementById('r_phone').value, Password: document.getElementById('r_pass').value };
+            const res = await fetch('/api/family/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r=>r.json());
+            if(res.status==='success'){ showToast(res.message, 'success'); document.getElementById('regForm').reset(); bootstrap.Tab.getOrCreateInstance(document.querySelector('button[data-bs-target="#login"]')).show(); }
+            else showToast(res.message, 'danger');
+        });
+    </script>
+</body>
+</html>

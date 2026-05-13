@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pymysql
+pandas
+openpyxl
+python-multipart
+# 電腦視覺與 YOLO 模型相關套件先備齊
+opencv-python-headless
+ultralytics

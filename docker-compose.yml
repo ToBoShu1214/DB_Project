@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # 1. 後端 API 服務 (取代原本老師的 PHP，改用 Python 3.12)
+  backend:
+    build: .
+    container_name: smartcare_backend
+    ports:
+      - "8000:8000"          # 你的 Python API 跑在 8000 port
+    environment:
+      # 告訴 Python 怎麼連線到下面的 MariaDB
+      - DATABASE_URL=mysql+pymysql://mymy:myPassword@db-db:3306/my-db
+    depends_on:
+      - db-db
+    volumes:
+      - .:/app               # 任意門：存檔即更新
+    networks:
+      - care-network
+
+  # 2. MariaDB 資料庫 (完全保留老師的設定，確保期末符合規格)
+  db-db:
+    image: mariadb:10.6
+    container_name: smartcare_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: myPassword
+      MYSQL_DATABASE: my-db
+      MYSQL_USER: mymy
+      MYSQL_PASSWORD: myPassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - care-network
+
+  # 3. phpMyAdmin 管理工具 (保留老師的設定，方便你用網頁看資料庫)
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: smartcare_pma
+    restart: always
+    environment:
+      PMA_HOST: db-db        # 內部連線對準上面的 db-db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: myPassword
+    ports:
+      - "8082:80"            # 瀏覽器輸入 localhost:8082 就能進管理畫面
+    depends_on:
+      - db-db
+    networks:
+      - care-network
+
+networks:
+  care-network:
+    driver: bridge
+
+volumes:
+  db_data:
