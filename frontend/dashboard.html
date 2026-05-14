@@ -8,6 +8,73 @@
         .row-退宿 { opacity: 0.5; background-color: #eee; }
         .row-住院 { background-color: #fff4f4; }
         .row-請假 { background-color: #fffbef; }
+        .stat-card { transition: 0.3s; cursor: default; }
+        .stat-card:hover { transform: translateY(-3px); }
+        
+        /* 📍 地圖相關樣式 */
+        #mapContainer {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f8f9fa;
+            user-select: none;
+        }
+        #hospitalMap {
+            width: 100%;
+            display: block;
+        }
+        .map-label {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            color: rgba(0,0,0,0.5);
+            pointer-events: none;
+            text-align: center;
+            transform: translate(-50%, -50%);
+        }
+        .bathroom-icon {
+            position: absolute;
+            font-size: 12px;
+            opacity: 0.6;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        .resident-marker {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            background-color: #0d6efd;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+        .resident-marker:hover::after {
+            content: attr(data-name);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -15,15 +82,48 @@
     <nav class="navbar navbar-dark bg-primary shadow-sm mb-4">
         <div class="container">
             <a class="navbar-brand fw-bold">🏥 智慧長照管理系統</a>
-            <div class="text-white"><span id="navUser" class="me-3 fw-bold"></span><button class="btn btn-outline-light btn-sm" onclick="logout()">登出</button></div>
+            <div class="text-white">
+                <span id="navUser" class="me-3 fw-bold"></span>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">登出</button>
+            </div>
         </div>
     </nav>
 
     <div class="container">
+        <!-- 🚀 儀表板統計看板 -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card stat-card bg-white shadow-sm border-0 border-start border-primary border-5">
+                    <div class="card-body">
+                        <h6 class="text-muted small fw-bold">院內住民總數</h6>
+                        <h2 id="stat_total" class="fw-bold text-primary mb-0">--</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card bg-white shadow-sm border-0 border-start border-danger border-5">
+                    <div class="card-body">
+                        <h6 class="text-muted small fw-bold text-danger">今日生理異常警示</h6>
+                        <h2 id="stat_alerts" class="fw-bold text-danger mb-0">--</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card bg-white shadow-sm border-0 border-start border-success border-5">
+                    <div class="card-body">
+                        <h6 class="text-muted small fw-bold text-success">全院系統狀態</h6>
+                        <h2 class="fw-bold text-success mb-0">連線正常</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <ul class="nav nav-tabs mb-4" id="mainTabs">
             <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#panel-res">🏠 住民管理</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold text-primary" data-bs-toggle="tab" data-bs-target="#panel-map" onclick="startMapPolling()">📍 定位監控中心</button></li>
             <li class="nav-item" id="nav-staff" style="display:none;"><button class="nav-link fw-bold text-danger" data-bs-toggle="tab" data-bs-target="#panel-staff" onclick="loadStaff()">🩺 員工帳號管理</button></li>
-            <li class="nav-item" id="nav-family" style="display:none;"><button class="nav-link fw-bold text-success" data-bs-toggle="tab" data-bs-target="#panel-family" onclick="loadAllFamily()">👨‍👩‍👧 家屬全域清單</button></li>
+            <li class="nav-item" id="nav-family" style="display:none;"><button class="nav-link fw-bold text-success" data-bs-toggle="tab" data-bs-target="#panel-family" onclick="loadAllFamily()">👨‍👩‍👧 家屬全域管理</button></li>
+            <li class="nav-item" id="nav-report" style="display:none;"><button class="nav-link fw-bold text-info" data-bs-toggle="tab" data-bs-target="#panel-report" onclick="loadMedReport()">📊 給藥紀錄報表</button></li>
         </ul>
 
         <div class="tab-content">
@@ -44,6 +144,37 @@
                 </div>
             </div>
 
+            <!-- 🚀 📍 定位監控分頁 -->
+            <div class="tab-pane fade" id="panel-map">
+                <div class="card shadow-sm p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold mb-0">📍 即時住民位置地圖</h4>
+                        <div class="d-flex gap-2">
+                            <div class="form-check form-switch small mt-1">
+                                <input class="form-check-input" type="checkbox" id="showLabels" checked onchange="toggleMapLabels()">
+                                <label class="form-check-label">顯示區域標籤</label>
+                            </div>
+                            <div class="text-muted small border-start ps-2">※ 點擊地圖任何位置可「手動更新」位置</div>
+                        </div>
+                    </div>
+                    
+                    <div id="mapContainer" onclick="handleMapClick(event)">
+                        <img src="/Layout.png" id="hospitalMap" alt="Hospital Layout">
+                        <div id="mapOverlay"></div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6 class="fw-bold">近期位置異動紀錄</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm small">
+                                <thead><tr><th>住民</th><th>區域</th><th>座標 (X, Y)</th><th>最後偵測時間</th></tr></thead>
+                                <tbody id="locationLog"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="tab-pane fade" id="panel-staff">
                 <div class="card shadow-sm p-4">
                     <div class="d-flex justify-content-between mb-3"><h4 class="fw-bold text-danger">員工帳號維護</h4><button class="btn btn-danger" onclick="openStaffModal()">➕ 新增員工</button></div>
@@ -54,10 +185,51 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="panel-family"><div class="card shadow-sm p-4"><h4 class="fw-bold text-success">全域家屬清單</h4><table class="table align-middle"><thead class="table-light"><tr><th>姓名</th><th>電話</th><th>關聯長輩</th><th>關係</th><th class="text-end">操作</th></tr></thead><tbody id="famTable"></tbody></table></div></div>
+            <div class="tab-pane fade" id="panel-family">
+                <div class="card shadow-sm p-4">
+                    <div class="d-flex justify-content-between mb-3">
+                        <h4 class="fw-bold text-success">家屬資料維護</h4>
+                    </div>
+                    <table class="table align-middle">
+                        <thead class="table-light"><tr><th>姓名</th><th>電話</th><th>關聯長輩</th><th>關係</th><th class="text-end">管理</th></tr></thead>
+                        <tbody id="famTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="panel-report">
+                <div class="card shadow-sm p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold text-info mb-0">全院給藥執行報表</h4>
+                        <button class="btn btn-outline-info fw-bold" onclick="location.href='/api/reports/medication-export'">📥 匯出 Excel</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle small">
+                            <thead class="table-light">
+                                <tr><th>時間</th><th>住民</th><th>藥品</th><th>時段</th><th>狀態</th><th>執行人</th></tr>
+                            </thead>
+                            <tbody id="reportTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- 🚀 手動更新位置彈窗 -->
+    <div class="modal fade" id="moveModal" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content">
+        <div class="modal-header bg-dark text-white"><h5 class="modal-title">手動定位</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <p class="small text-muted mb-2">座標: <span id="clickCoord">--</span></p>
+            <label class="form-label small fw-bold">選擇住民</label>
+            <select class="form-select form-select-sm" id="moveResSelect"></select>
+            <label class="form-label small fw-bold mt-2">標註區域</label>
+            <input type="text" class="form-control form-control-sm" id="moveZone" placeholder="例如: 走廊">
+        </div>
+        <div class="modal-footer"><button class="btn btn-sm btn-primary w-100" onclick="submitManualMove()">確認移動</button></div>
+    </div></div></div>
+
+    <!-- 住民彈窗 -->
     <div class="modal fade" id="resModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
         <div class="modal-header bg-primary text-white"><h5 class="modal-title">住民資料編輯</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body"><form id="resForm">
@@ -66,18 +238,18 @@
             <div class="row g-2 mb-2"><div class="col"><label class="form-label">性別</label><select class="form-select" id="r_sex"><option>男</option><option>女</option></select></div><div class="col"><label class="form-label">房號</label><input type="text" class="form-control" id="r_room" required></div></div>
             <div class="mb-2"><label class="form-label">生日</label><input type="date" class="form-control" id="r_dob" required></div>
             <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">身高 (cm)</label><input type="number" step="0.1" class="form-control" id="r_height" placeholder="例如: 170.5"></div>
+                <div class="col"><label class="form-label">體重 (kg)</label><input type="number" step="0.1" class="form-control" id="r_weight" placeholder="例如: 65.2"></div>
+            </div>
+            <div class="row g-2 mb-2">
                 <div class="col"><label class="form-label">照護等級</label><select class="form-select" id="r_level"><option>輕度</option><option>中度</option><option>重度</option></select></div>
-                <div class="col">
-                    <label class="form-label">目前狀態</label>
-                    <select class="form-select" id="r_status">
-                        <option>入住中</option><option>住院</option><option>請假</option><option>退宿</option>
-                    </select>
-                </div>
+                <div class="col"><label class="form-label">目前狀態</label><select class="form-select" id="r_status"><option>入住中</option><option>住院</option><option>請假</option><option>退宿</option></select></div>
             </div>
         </form></div>
         <div class="modal-footer"><button class="btn btn-secondary me-auto" id="btnDelRes" style="display:none" onclick="deleteRes()">🚨 徹底刪除</button><button class="btn btn-primary" onclick="saveRes()">儲存資料</button></div>
     </div></div></div>
 
+    <!-- 員工彈窗 -->
     <div class="modal fade" id="staffModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
         <div class="modal-header bg-danger text-white"><h5 class="modal-title">員工帳號編輯</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body"><form id="staffForm">
@@ -97,17 +269,52 @@
     <script>
         const resModal = new bootstrap.Modal('#resModal');
         const staffModal = new bootstrap.Modal('#staffModal');
-        const role = localStorage.getItem('role'); // 🚀 修正：讀取 'role' 而不是 'userRole'
+        const moveModal = new bootstrap.Modal('#moveModal');
+        
+        const role = localStorage.getItem('role'); 
         const user = localStorage.getItem('userName');
         if(!user) location.href='/staff_login.html';
+        
         document.getElementById('navUser').textContent = `${role}：${user}`;
-        if(role === '管理員') { document.getElementById('nav-staff').style.display='block'; document.getElementById('nav-family').style.display='block'; }
+        
+        if(role === '管理員' || role === 'Admin') { 
+            document.getElementById('nav-staff').style.display='block'; 
+            document.getElementById('nav-family').style.display='block'; 
+            document.getElementById('nav-report').style.display='block'; 
+        }
 
-        // --- 住民管理邏輯 ---
+        async function loadDashboardStats() {
+            try {
+                const res = await fetch('/api/dashboard-stats').then(r => r.json());
+                document.getElementById('stat_total').textContent = res.total || 0;
+                document.getElementById('stat_alerts').textContent = res.alerts || 0;
+            } catch (e) { console.error("統計數據加載失敗", e); }
+        }
+
+        // --- 報表管理 ---
+        async function loadMedReport() {
+            const r = await fetch('/api/reports/medication-full').then(res=>res.json());
+            document.getElementById('reportTable').innerHTML = r.data.map(m => `
+                <tr>
+                    <td>${new Date(m.CreateTime).toLocaleString()}</td>
+                    <td class="fw-bold">${m.ResidentName}</td>
+                    <td>${m.MedName} (${m.Dosage})</td>
+                    <td>${m.Schedule}</td>
+                    <td>${m.IsTaken ? '<span class="text-success">已服用</span>' : '<span class="text-muted">待執行</span>'}</td>
+                    <td>${m.StaffName || '--'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- 住民管理 ---
         let allRes = [];
         async function loadRes() {
             const r = await fetch('/api/residents').then(res=>res.json());
             allRes = r.data; renderResTable();
+            
+            // 同步更新地圖選單
+            const select = document.getElementById('moveResSelect');
+            if(select) select.innerHTML = allRes.map(r => `<option value="${r.ResidentID}">${r.FullName} (#${r.ResidentID})</option>`).join('');
         }
         function renderResTable() {
             const key = document.getElementById('resSearch').value.toLowerCase();
@@ -136,12 +343,14 @@
         function openResModal(data=null){
             document.getElementById('resForm').reset();
             document.getElementById('resId').value = data ? data.ResidentID : '';
-            document.getElementById('btnDelRes').style.display = (data && role==='管理員') ? 'block' : 'none';
+            document.getElementById('btnDelRes').style.display = (data && (role==='管理員' || role==='Admin')) ? 'block' : 'none';
             if(data){
                 document.getElementById('r_name').value = data.FullName;
                 document.getElementById('r_sex').value = data.Sex;
                 document.getElementById('r_room').value = data.RoomNumber;
                 document.getElementById('r_dob').value = data.DateOfBirth;
+                document.getElementById('r_height').value = data.Height || '';
+                document.getElementById('r_weight').value = data.Weight || '';
                 document.getElementById('r_level').value = data.CareLevel;
                 document.getElementById('r_status').value = data.Status;
             }
@@ -149,13 +358,224 @@
         }
         async function saveRes(){
             const id = document.getElementById('resId').value;
-            const body = { FullName:document.getElementById('r_name').value, Sex:document.getElementById('r_sex').value, DateOfBirth:document.getElementById('r_dob').value, CareLevel:document.getElementById('r_level').value, RoomNumber:document.getElementById('r_room').value, Status:document.getElementById('r_status').value };
+            const body = { 
+                FullName:document.getElementById('r_name').value, 
+                Sex:document.getElementById('r_sex').value, 
+                DateOfBirth:document.getElementById('r_dob').value, 
+                CareLevel:document.getElementById('r_level').value, 
+                RoomNumber:document.getElementById('r_room').value, 
+                Status:document.getElementById('r_status').value, 
+                BpThreshold: 140,
+                Height: document.getElementById('r_height').value ? parseFloat(document.getElementById('r_height').value) : null,
+                Weight: document.getElementById('r_weight').value ? parseFloat(document.getElementById('r_weight').value) : null
+            };
             await fetch(id?`/api/residents/${id}`:'/api/residents/single', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             resModal.hide(); loadRes();
         }
         async function deleteRes(){ if(confirm('警告：這將徹底從資料庫刪除此住民及所有關聯數據，確定？')) { await fetch(`/api/residents/${document.getElementById('resId').value}`, {method:'DELETE'}); resModal.hide(); loadRes(); } }
 
-        // --- 員工管理邏輯 (管理員專屬) ---
+        // --- 📍 地圖定位邏輯 ---
+        let mapPolling = null;
+        let lastClickX = 0;
+        let lastClickY = 0;
+
+        const MAP_ZONES_CONFIG = [
+            { name: "401房", rects: [{x: [6.45, 23.25], y: [19.17, 41.56]}], labelPos: [15.05, 26.54], hasBath: true, bathPos: [9.52, 34.94] },
+            { name: "402房", rects: [{x: [32.59, 40.94], y: [53.43, 83.33]}], labelPos: [36.46, 63.33], hasBath: true, bathPos: [34.75, 56.88] },
+            { name: "403房", rects: [{x: [41.72, 49.92], y: [19.66, 39.88 ]}], labelPos: [45.12, 30.42], hasBath: true, bathPos: [47.76, 36.87] },
+            { name: "404房", rects: [{x: [41.56, 49.92], y: [53.00, 83.12]}], labelPos: [45.43, 64.83], hasBath: true, bathPos: [47.45, 56.45] },
+            { name: "405房", rects: [{x: [50.23, 58.44], y: [19.66, 40.31]}], labelPos: [54.10, 30.63 ], hasBath: true, bathPos: [52.40, 36.66] },
+            { name: "406房", rects: [{x: [50.23, 58.28], y: [53.43, 83.12 ]}], labelPos: [53.79, 67.85], hasBath: true, bathPos: [52.40, 56.66] },
+            { name: "407房", rects: [{x: [58.75, 66.95], y: [19.66,  40.10]}], labelPos: [62.62, 30.42], hasBath: true, bathPos: [64.78, 36.66] },
+            { name: "408房", rects: [{x: [59.21, 67.57], y: [53.22, 83.12]}], labelPos: [62.77, 68.49], hasBath: true, bathPos: [65.25, 57.52] },
+            { name: "409房", rects: [{x: [67.41, 75.62], y: [19.66, 40.31]}], labelPos: [71.28, 30.63], hasBath: true, bathPos: [69.27, 37.09] },
+            { name: "410房", rects: [{x: [67.88, 75.93], y: [53.43, 83.12]}], labelPos: [71.90, 65.48], hasBath: true, bathPos: [69.58, 58.17] },
+            { name: "411房", rects: [{x: [76.70, 85.06], y: [53.22, 83.12]}], labelPos: [80.73, 67.85], hasBath: true, bathPos: [82.89, 57.52] },
+            { name: "412房", rects: [{x: [85.53, 93.58], y: [53.43, 83.12]}], labelPos: [89.55, 67.42], hasBath: true, bathPos: [91.72, 58.17] },
+            { name: "行政辦公室", rects: [{x: [75.93, 80.26], y: [19.88, 40.10]},{x: [80.88, 88.78], y: [28.48, 40.10]}], labelPos: [81.66, 31.28], hasBath: true, bathPos: [77.48, 37.30] },
+            { name: "護理站", rects: [{x: [6.42, 23.30], y: [53.43, 83.12]}], labelPos: [12.31, 49.99], hasBath: true, bathPos: [8.35, 57.41] },
+            { name: "護理休息室", rects: [{x: [6.42, 23.30], y: [53.43, 83.12]}], labelPos: [14.78, 70.00], hasBath: true, bathPos: [17.05, 59.50] },
+            { name: "交誼廳", rects: [{x: [23.95, 32.35], y: [52.96, 83.42]}], labelPos: [26.85, 62.83], hasBath: true, bathPos: [29.75, 56.72] },
+            { name: "走廊", rects: [{x: [19.27, 93.58], y: [42.03, 53.00]}], labelPos: [53.48, 46.77], hasBath: false },
+            { name: "樓梯", rects: [{x: [81.19, 94.20], y: [19.66, 28.27]},{x: [89.40, 93.73], y: [28.05, 40.74]},{x: [24.23, 33.51], y: [19.66, 40.74]}], labelPos: [28.65, 37.38], labelPos:[91.65, 24.31], hasBath: false },
+            { name: "電梯", rects: [{x: [34.13, 40.94], y: [19.88, 40.53]}], labelPos: [37.45, 36.41], hasBath: false }
+        ];
+
+        function startMapPolling() {
+            renderMapLabels();
+            if(mapPolling) clearInterval(mapPolling);
+            updateMapData();
+            mapPolling = setInterval(updateMapData, 3000);
+        }
+
+        function renderMapLabels() {
+            const overlay = document.getElementById('mapOverlay');
+            overlay.innerHTML = '';
+            MAP_ZONES_CONFIG.forEach(z => {
+                const label = document.createElement('div');
+                label.className = 'map-label';
+                label.style.left = z.labelPos[0] + '%';
+                label.style.top = z.labelPos[1] + '%';
+                label.textContent = z.name;
+                overlay.appendChild(label);
+                if(z.hasBath) {
+                    const bath = document.createElement('div');
+                    bath.className = 'bathroom-icon';
+                    bath.style.left = z.bathPos[0] + '%';
+                    bath.style.top = z.bathPos[1] + '%';
+                    bath.textContent = '🚽';
+                    overlay.appendChild(bath);
+                }
+            });
+        }
+
+        function toggleMapLabels() {
+            const overlay = document.getElementById('mapOverlay');
+            overlay.style.display = document.getElementById('showLabels').checked ? 'block' : 'none';
+        }
+
+        async function updateMapData() {
+            try {
+                const res = await fetch('/api/residents/locations/all').then(r => r.json());
+                if(res.status === 'success') {
+                    renderMarkers(res.data);
+                    renderLocationLog(res.data);
+                }
+            } catch (e) { console.error("地圖數據加載失敗", e); }
+        }
+
+        function renderMarkers(locations) {
+            const container = document.getElementById('mapContainer');
+            // 清理舊的 popovers
+            const oldMarkers = container.querySelectorAll('.resident-marker');
+            oldMarkers.forEach(m => {
+                try {
+                    if (window.bootstrap && bootstrap.Popover) {
+                        const popover = bootstrap.Popover.getInstance(m);
+                        if (popover) popover.dispose();
+                    }
+                } catch(e) {}
+                m.remove();
+            });
+
+            locations.forEach(loc => {
+                const marker = document.createElement('div');
+                marker.className = 'resident-marker';
+                marker.style.left = loc.X_Coordinate + '%';
+                marker.style.top = loc.Y_Coordinate + '%';
+                // 恢復為僅顯示姓名首字
+                marker.textContent = loc.FullName.substring(0, 1);
+                
+                // 設定 Popover 屬性 (改為 click 觸發)
+                marker.setAttribute('data-bs-toggle', 'popover');
+                marker.setAttribute('data-bs-trigger', 'click'); 
+                marker.setAttribute('title', `🩺 ${loc.FullName}`);
+                marker.setAttribute('data-bs-html', 'true');
+                marker.setAttribute('data-bs-content', `
+                    <div class="small mb-1">
+                        <strong>住民編號：</strong>#${loc.ResidentID}<br>
+                        <strong>區域：</strong>${loc.Zone}<br>
+                        <strong>更新：</strong>${new Date(loc.Timestamp).toLocaleTimeString()}<br>
+                    </div>
+                    <button class="btn btn-sm btn-primary w-100 py-0" style="font-size:12px" 
+                            onclick="location.href='/detail.html?id=${loc.ResidentID}'">📊 查看數據</button>
+                `);
+
+                marker.onclick = (e) => { 
+                    e.stopPropagation(); 
+                };
+                
+                container.appendChild(marker);
+                if (window.bootstrap && bootstrap.Popover) {
+                    new bootstrap.Popover(marker);
+                }
+            });
+        }
+
+        function renderLocationLog(locations) {
+            const tbody = document.getElementById('locationLog');
+            tbody.innerHTML = locations.map(loc => `
+                <tr>
+                    <td class="fw-bold text-primary">${loc.FullName}</td>
+                    <td><span class="badge bg-light text-dark border">${loc.Zone}</span></td>
+                    <td class="text-muted small">${loc.X_Coordinate}, ${loc.Y_Coordinate}</td>
+                    <td class="small">${new Date(loc.Timestamp).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function detectZone(x, y) {
+            // 1. 優先偵測浴室
+            for (const z of MAP_ZONES_CONFIG) {
+                if (z.hasBath) {
+                    const dist = Math.sqrt(Math.pow(x - z.bathPos[0], 2) + Math.pow(y - z.bathPos[1], 2));
+                    if (dist < 4) return `${z.name} (浴室)`;
+                }
+            }
+            // 2. 偵測各個區域的矩形組合
+            for (const z of MAP_ZONES_CONFIG) {
+                if (z.rects) {
+                    for (const r of z.rects) {
+                        if (x >= r.x[0] && x <= r.x[1] && y >= r.y[0] && y <= r.y[1]) {
+                            return z.name;
+                        }
+                    }
+                } else if (z.x && z.y) {
+                    if (x >= z.x[0] && x <= z.x[1] && y >= z.y[0] && y <= z.y[1]) {
+                        return z.name;
+                    }
+                }
+            }
+            return "未知區域";
+        }
+
+        async function handleMapClick(e) {
+            // 立即彈出，確認事件有抓到
+            console.log("Map clicked");
+            const rect = e.currentTarget.getBoundingClientRect();
+            lastClickX = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
+            lastClickY = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
+            const zoneName = detectZone(lastClickX, lastClickY);
+            
+            // alert(`您點擊了：${zoneName} (${lastClickX}, ${lastClickY})`); // 暫時註解，避免干擾，但如果真的沒反應可以取消註解
+            
+            try {
+                const res = await fetch('/api/residents/locations/all').then(r => r.json());
+                const peopleInZone = res.data.filter(loc => loc.Zone === zoneName || loc.Zone === zoneName + ' (浴室)');
+                
+                let message = `📍 點擊區域：${zoneName}\n座標：(${lastClickX}, ${lastClickY})\n────────────────\n`;
+                if (peopleInZone.length > 0) {
+                    const names = peopleInZone.map(p => `• ${p.FullName} (#${p.ResidentID})`).join('\n');
+                    message += `【目前此區域病患】\n${names}\n\n是否要在這裡「手動定位」其他病患？`;
+                } else {
+                    message += `目前此區域【無人】。\n\n是否要在這裡「手動定位」病患？`;
+                }
+
+                if(confirm(message)) {
+                    document.getElementById('moveZone').value = zoneName;
+                    document.getElementById('clickCoord').textContent = `${lastClickX}, ${lastClickY} ➜ ${zoneName}`;
+                    moveModal.show();
+                }
+            } catch(err) {
+                // 如果 API 失敗，退而求其次直接顯示手動定位
+                console.error("無法取得即時病患清單", err);
+                document.getElementById('moveZone').value = zoneName;
+                document.getElementById('clickCoord').textContent = `${lastClickX}, ${lastClickY} ➜ ${zoneName}`;
+                moveModal.show();
+            }
+        }
+
+        async function submitManualMove() {
+            const body = {
+                ResidentID: parseInt(document.getElementById('moveResSelect').value),
+                Zone: document.getElementById('moveZone').value || "未知區域",
+                X_Coordinate: parseFloat(lastClickX),
+                Y_Coordinate: parseFloat(lastClickY)
+            };
+            const res = await fetch('/api/sightings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            if(res.status === 'success') { moveModal.hide(); updateMapData(); }
+        }
+
         async function loadStaff() {
             const r = await fetch('/api/staff').then(res=>res.json());
             document.getElementById('staffTable').innerHTML = r.data.map(s => `
@@ -189,17 +609,39 @@
         }
         async function deleteStaffConfirm(){ if(confirm('確定刪除此員工帳號？')) { await fetch(`/api/staff/${document.getElementById('s_id').value}`, {method:'DELETE'}); staffModal.hide(); loadStaff(); } }
 
-        // --- 家屬管理 ---
         async function loadAllFamily() {
             const r = await fetch('/api/family-members').then(res=>res.json());
             document.getElementById('famTable').innerHTML = r.data.map(f => `
-                <tr><td>${f.FullName}</td><td>${f.Phone}</td><td>#${f.ResidentID} ${f.ResidentName||'未知'}</td><td>${f.Relationship}</td><td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="deleteFam(${f.FamilyID})">刪除</button></td></tr>
+                <tr>
+                    <td>${f.FullName} ${f.IsEmergencyContact?'<span class="badge bg-danger small">緊急</span>':''}</td>
+                    <td>${f.Phone}</td>
+                    <td>#${f.ResidentID} ${f.ResidentName||'未知'}</td>
+                    <td>${f.Relationship}</td>
+                    <td class="text-end"><button class="btn btn-sm btn-outline-success" onclick='openFamEditModal(${JSON.stringify(f)})'>管理</button></td>
+                </tr>
             `).join('');
         }
-        async function deleteFam(id){ if(confirm('刪除家屬帳號？')) { await fetch(`/api/family-members/${id}`,{method:'DELETE'}); loadAllFamily(); } }
+        function openFamEditModal(data){
+            document.getElementById('famEditForm').reset();
+            document.getElementById('f_id').value = data.FamilyID;
+            document.getElementById('f_res_id').value = data.ResidentID;
+            document.getElementById('f_name').value = data.FullName;
+            document.getElementById('f_rel').value = data.Relationship;
+            document.getElementById('f_phone').value = data.Phone;
+            document.getElementById('f_emergency').checked = data.IsEmergencyContact === 1;
+            familyEditModal.show();
+        }
+        async function saveFamEdit(){
+            const id = document.getElementById('f_id').value;
+            const body = { ResidentID: parseInt(document.getElementById('f_res_id').value), FullName: document.getElementById('f_name').value, Relationship: document.getElementById('f_rel').value, Phone: document.getElementById('f_phone').value, IsEmergencyContact: document.getElementById('f_emergency').checked ? 1 : 0 };
+            await fetch(`/api/family-members/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            familyEditModal.hide(); loadAllFamily();
+        }
+        async function deleteFamConfirm(){ if(confirm('確定刪除此家屬帳號？')) { await fetch(`/api/family-members/${document.getElementById('f_id').value}`, {method:'DELETE'}); familyEditModal.hide(); loadAllFamily(); } }
 
         function logout(){ localStorage.clear(); location.href='/staff_login.html'; }
         loadRes();
+        loadDashboardStats();
     </script>
 </body>
 </html>
