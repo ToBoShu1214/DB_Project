@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>家屬安心儀表板 - 全方位照護資訊</title>
+    <title>智慧長照 - 家屬安心儀表板</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; }
-        .header-bg { background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white; padding: 30px 0; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .card { border: none; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .chart-container { position: relative; height: 320px; width: 100%; }
-        .med-item { border-left: 5px solid #dee2e6; transition: 0.3s; }
-        .med-item.taken { border-left-color: #198754; background-color: #f1f8f5; }
-        .info-label { color: #6c757d; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; }
-        .info-value { font-weight: bold; color: #2c3e50; font-size: 1.1rem; }
-        .notes-scroll { max-height: 450px; overflow-y: auto; padding-right: 5px; }
-        .notes-scroll::-webkit-scrollbar { width: 5px; }
-        .notes-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-        .badge-disease { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-
-        /* 📍 地圖相關樣式 (家屬版) */
+        .header-bg { background: linear-gradient(135deg, #198754 0%, #20c997 100%); color: white; padding: 25px 0; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .med-item { border-left: 4px solid #dee2e6; transition: 0.3s; }
+        .med-item.taken { border-left-color: #198754; background-color: #f1f8f5; opacity: 0.8; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        .info-label { color: #6c757d; font-size: 0.8rem; font-weight: bold; }
+        .info-value { font-weight: bold; color: #2c3e50; }
+        
+        /* 📍 地圖相關樣式 */
         #mapContainer {
             position: relative;
             width: 100%;
@@ -32,17 +27,16 @@
         #hospitalMap { width: 100%; display: block; }
         .map-label {
             position: absolute;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 800;
             color: #333;
             pointer-events: none;
             text-align: center;
             transform: translate(-50%, -50%);
             background-color: rgba(255, 255, 255, 0.7);
-            padding: 2px 8px;
+            padding: 1px 5px;
             border-radius: 4px;
             white-space: nowrap;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         .resident-marker {
             position: absolute;
@@ -52,7 +46,6 @@
             border: 2px solid white;
             border-radius: 50%;
             transform: translate(-50%, -50%);
-            cursor: pointer;
             box-shadow: 0 0 10px rgba(0,0,0,0.3);
             display: flex;
             align-items: center;
@@ -64,88 +57,152 @@
         }
     </style>
 </head>
-<body>
+<body class="bg-light">
 
-    <div class="header-bg text-center mb-4 position-relative">
+    <nav class="navbar navbar-dark bg-success shadow-sm mb-0">
         <div class="container">
-            <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-3 fw-bold" onclick="logout()">登出</button>
-            <h2 class="fw-bold mb-1">🏥 智慧長照安心門戶</h2>
-            <div id="resNameTitle" class="mt-3 bg-white text-success d-inline-block px-4 py-2 rounded-pill fw-bold shadow-sm">
-                正在識別長輩身份...
-            </div>
+            <span class="navbar-brand fw-bold">🏥 智慧長照安心門戶</span>
+            <button class="btn btn-outline-light btn-sm fw-bold" onclick="logout()">安全登出</button>
+        </div>
+    </nav>
+
+    <div class="header-bg text-center mb-4">
+        <div class="container">
+            <h3 id="residentTitle" class="fw-bold mb-0 text-white">正在載入長輩資料...</h3>
         </div>
     </div>
 
     <div class="container pb-5">
-        <!-- 🚀 Tab 導覽列 -->
-        <ul class="nav nav-pills justify-content-center mb-4 bg-white p-2 rounded-pill shadow-sm" id="familyTabs">
-            <li class="nav-item"><button class="nav-link active fw-bold px-4" data-bs-toggle="tab" data-bs-target="#tab-health">📊 健康概況</button></li>
-            <li class="nav-item"><button class="nav-link fw-bold px-4" data-bs-toggle="tab" data-bs-target="#tab-care">🧼 照護紀錄</button></li>
-            <li class="nav-item"><button class="nav-link fw-bold px-4" data-bs-toggle="tab" data-bs-target="#tab-map">📍 即時定位</button></li>
-        </ul>
-
-        <!-- 🚀 1. 住民核心資料看板 -->
-        <div class="card mb-4 border-0">
-            <div class="card-body py-4">
-                <div class="row text-center align-items-center">
-                    <div class="col-md-2 border-end border-light"><div class="info-label">性別</div><div id="info_sex" class="info-value">--</div></div>
-                    <div class="col-md-2 border-end border-light"><div class="info-label">年齡</div><div id="info_age" class="info-value">--</div></div>
-                    <div class="col-md-3 border-end border-light"><div class="info-label">身高 / 體重</div><div id="info_hw" class="info-value">--</div></div>
-                    <div class="col-md-3 border-end border-light"><div class="info-label">目前房號</div><div id="info_room" class="info-value text-primary">--</div></div>
-                    <div class="col-md-2"><div class="info-label">照護等級</div><div id="info_level" class="info-value">--</div></div>
-                </div>
+        <!-- 🚀 住民基本資料摘要區 -->
+        <div class="card shadow-sm p-3 mb-4 bg-white border-0">
+            <div class="row align-items-center text-center">
+                <div class="col-md-2 border-end"><div class="info-label">性別</div><span id="info_sex" class="info-value">--</span></div>
+                <div class="col-md-2 border-end"><div class="info-label">年齡</div><span id="info_age" class="info-value">--</span></div>
+                <div class="col-md-2 border-end"><div class="info-label">房號</div><span id="info_room" class="info-value text-success">--</span></div>
+                <div class="col-md-3 border-end"><div class="info-label">照護等級</div><span id="info_level" class="info-value">--</span></div>
+                <div class="col-md-3"><div class="info-label">當前位置</div><span id="locDisplaySummary" class="info-value text-success">偵測中...</span></div>
             </div>
         </div>
 
+        <!-- 🚀 分頁標籤導覽 -->
+        <ul class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm" id="familyTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#tab-health">📊 生理監控</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-records">📝 護理與照護</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-medical">💊 醫療處置</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#tab-info">🏠 基本資料</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold text-success" data-bs-toggle="tab" data-bs-target="#tab-map">📍 即時定位</button></li>
+        </ul>
+
         <div class="tab-content">
-            <!-- 🏥 健康概況分頁 -->
+            <!-- 1. 生理監控 Tab -->
             <div class="tab-pane fade show active" id="tab-health">
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="row g-3 mb-4 text-center">
-                            <div class="col-md-4"><div class="card p-3 h-100"><h6 class="info-label mb-2">平均收縮壓</h6><h3 id="stat_sys" class="text-danger fw-bold mb-0">--</h3><small class="text-muted">mmHg</small></div></div>
-                            <div class="col-md-4"><div class="card p-3 h-100"><h6 class="info-label mb-2">最新血糖</h6><h3 id="stat_sugar" class="text-primary fw-bold mb-0">--</h3><small class="text-muted">mg/dL</small></div></div>
-                            <div class="col-md-4"><div class="card p-3 h-100"><h6 class="info-label mb-2">最新血氧</h6><h3 id="stat_oxy" class="text-info fw-bold mb-0">--</h3><small class="text-muted">% SpO2</small></div></div>
-                        </div>
-                        <div class="card p-4 mb-4">
-                            <h5 class="fw-bold mb-4 d-flex align-items-center"><span class="me-2">📈</span> 血壓與心跳健康趨勢</h5>
-                            <div class="chart-container"><canvas id="healthChart"></canvas></div>
-                        </div>
-                        <div class="card p-4 mb-4">
-                            <h5 class="fw-bold mb-3 d-flex align-items-center"><span class="me-2">📅</span> 詳細生理量測歷史</h5>
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle small text-center border-top">
-                                    <thead class="table-light text-muted">
-                                        <tr><th>量測時間</th><th>收縮壓</th><th>舒張壓</th><th>心跳</th><th>血糖</th><th>血氧</th><th>狀態備註</th></tr>
-                                    </thead>
-                                    <tbody id="historyTable"><tr><td colspan="7" class="py-4">正在載入紀錄...</td></tr></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div class="card p-4 mb-4">
-                            <h5 class="fw-bold mb-3 d-flex align-items-center"><span class="me-2">📝</span> 專業護理進接紀錄</h5>
-                            <div id="notesContainer" class="notes-scroll"><div class="text-center text-muted py-4">正在載入最新紀錄...</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card p-4 mb-4 text-center bg-white border-start border-success border-5">
-                            <h6 class="info-label mb-2">📍 目前位置預覽</h6>
-                            <div id="locDisplaySummary" class="fw-bold text-success h4 mb-0">讀取中</div>
-                        </div>
-                        <div class="card p-4 mb-4"><h6 class="info-label mb-3">📋 確診慢性病史</h6><div id="diseaseTags" class="d-flex flex-wrap gap-2"><span class="text-muted small">讀取中...</span></div></div>
-                        <div class="card p-4 mb-4 bg-white"><h5 class="fw-bold mb-3 text-primary d-flex align-items-center">🏥 醫師開立醫囑</h5><div id="orderHistory" class="small text-muted">正在同步病歷...</div></div>
-                        <div class="card p-4 shadow-sm border-0" style="background-color: #ffffff;"><h5 class="fw-bold mb-4 text-success d-flex align-items-center">💊 今日用藥執行進度</h5><div id="medList"><div class="text-center py-3">正在載入藥單...</div></div></div>
+                <div class="row text-center mb-3" id="healthStats"></div>
+                <div class="card shadow-sm p-4 mb-4 bg-white border-0">
+                    <h5 class="fw-bold mb-4 text-success">📈 近期健康趨勢 (血壓/心跳)</h5>
+                    <div class="chart-container"><canvas id="healthChart"></canvas></div>
+                </div>
+
+                <div class="card shadow-sm p-4 mb-4 border-success border-top border-3">
+                    <h5 class="fw-bold mb-3">📅 歷史生理量測紀錄</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle text-center" id="healthRecordTable">
+                            <thead class="table-light">
+                                <tr class="small text-muted">
+                                    <th>量測時間</th>
+                                    <th>收縮壓</th>
+                                    <th>舒張壓</th>
+                                    <th>心跳</th>
+                                    <th class="text-primary">血糖</th>
+                                    <th class="text-info">血氧</th>
+                                    <th>備註</th>
+                                </tr>
+                            </thead>
+                            <tbody id="healthEditBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <!-- 📍 即時定位分頁 -->
+            <!-- 2. 護理與照護 Tab -->
+            <div class="tab-pane fade" id="tab-records">
+                <div class="row">
+                    <div class="col-md-7">
+                        <div class="card shadow-sm p-4 border-secondary border-top border-3 h-100">
+                            <h5 class="fw-bold mb-4 text-secondary">📝 護理進接紀錄</h5>
+                            <div id="notesContainer" class="small overflow-auto" style="max-height: 500px;"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card shadow-sm p-4 border-info border-top border-3 h-100">
+                            <h5 class="fw-bold mb-4 text-info">🧼 日常照護日誌</h5>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle small">
+                                    <thead class="table-light">
+                                        <tr><th>時間</th><th>沐浴</th><th>尿褲</th><th>備註</th></tr>
+                                    </thead>
+                                    <tbody id="careLogBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 醫療處置 Tab -->
+            <div class="tab-pane fade" id="tab-medical">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm p-4 mb-4 border-primary border-top border-3 h-100">
+                            <h5 class="fw-bold mb-3 text-primary">🏥 醫師醫囑紀錄</h5>
+                            <div id="orderHistory" class="small text-muted">尚無醫囑紀錄</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm p-4 mb-4 border-warning border-top border-3 h-100">
+                            <h5 class="fw-bold mb-3 text-warning">💊 今日用藥情形</h5>
+                            <div id="medList" class="small"></div>
+                        </div>
+                    </div>
+                    <div class="col-12 mt-4">
+                        <div class="card shadow-sm p-4 border-success border-top border-3">
+                            <h5 class="fw-bold mb-3 text-success">🛡️ 疫苗接種紀錄</h5>
+                            <div id="vaccineList" class="row g-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 基本資料 Tab -->
+            <div class="tab-pane fade" id="tab-info">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm p-4 mb-4 h-100">
+                            <h5 class="fw-bold mb-3">📋 進階資料</h5>
+                            <div class="row g-3">
+                                <div class="col-6"><label class="text-muted small">身高/體重</label><div id="info_hw" class="fw-bold">--</div></div>
+                                <div class="col-6"><label class="text-muted small">失智等級 (CDR)</label><div><span id="info_cdr" class="badge bg-warning text-dark">--</span></div></div>
+                                <div class="col-6"><label class="text-muted small">失能等級 (CMS)</label><div><span id="info_cms" class="badge bg-danger">--</span></div></div>
+                                <div class="col-12"><label class="text-muted small">過敏原紀錄</label><div id="info_allergies" class="text-danger fw-bold">無紀錄</div></div>
+                                <div class="col-12"><label class="text-muted small">慢性病史</label><div id="diseaseTags" class="d-flex flex-wrap gap-1"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm p-4 mb-4 h-100">
+                            <h5 class="fw-bold mb-3">👨‍👩‍👧 登記家屬聯絡資訊</h5>
+                            <div id="familyList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. 📍 即時定位 Tab -->
             <div class="tab-pane fade" id="tab-map">
                 <div class="card p-4 shadow-sm">
                     <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
                         <div>
                             <h4 class="fw-bold mb-1">📍 長輩即時定位監控</h4>
-                            <p class="text-muted small mb-0">資料每 30 秒自動更新一次，此地圖僅顯示您的關聯長輩</p>
+                            <p class="text-muted small mb-0">資料每 30 秒自動更新一次，僅顯示您的關聯長輩</p>
                         </div>
                         <div class="text-center">
                             <h3 id="locDisplay" class="fw-bold text-success mb-0" style="font-size: 2rem;">讀取中</h3>
@@ -153,8 +210,8 @@
                         </div>
                     </div>
                     <div class="bg-light p-3 rounded text-center">
-                        <div id="mapContainer" style="max-width: 900px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1); background-color: white; border-radius: 8px;">
-                            <img src="/Layout.png" id="hospitalMap" alt="Hospital Layout" style="width:100%; border-radius: 8px;">
+                        <div id="mapContainer" style="max-width: 900px; margin: 0 auto;">
+                            <img src="/Layout.png" id="hospitalMap" alt="Hospital Layout">
                             <div id="mapOverlay"></div>
                         </div>
                     </div>
@@ -168,79 +225,105 @@
         const residentId = localStorage.getItem('targetResident');
         let healthChart = null;
 
-        if (!residentId) { alert('登入已失效，請重新登入！'); window.location.href = '/family_login.html'; }
-        function logout() { localStorage.clear(); window.location.href = '/family_login.html'; }
+        if(!residentId) { alert("登入失效，請重新登入"); location.href='/family_login.html'; }
+
+        window.onload = async function() {
+            try {
+                const res = await fetch(`/api/residents/${residentId}`).then(r => r.json());
+                if(res.data) {
+                    const d = res.data;
+                    document.getElementById('residentTitle').textContent = `照護長輩：${d.FullName} (ID: #${d.ResidentID})`;
+                    document.getElementById('info_sex').textContent = d.Sex;
+                    document.getElementById('info_room').textContent = d.RoomNumber;
+                    document.getElementById('info_level').textContent = d.CareLevel;
+                    document.getElementById('info_hw').textContent = `${d.Height || '--'} cm / ${d.Weight || '--'} kg`;
+                    document.getElementById('info_cdr').textContent = d.CDR || '--';
+                    document.getElementById('info_cms').textContent = d.CMS || '--';
+                    document.getElementById('info_allergies').textContent = d.Allergies || '無紀錄';
+
+                    if (d.DateOfBirth) {
+                        const age = new Date().getFullYear() - new Date(d.DateOfBirth).getFullYear();
+                        document.getElementById('info_age').textContent = `${age} 歲`;
+                    }
+                }
+                init();
+            } catch (e) { console.error("載入失敗", e); }
+        };
 
         async function init() {
             try {
-                await Promise.all([loadBasicInfo(), loadLatestHealthAndStats(), loadHistoryTable(), loadNotes(), loadLocation(), loadMedicalProfile(), loadMedications()]);
-            } catch (err) { console.error("初始化過程中出錯:", err); }
+                const hRes = await fetch(`/api/residents/${residentId}/health-history-v2`).then(r => r.json());
+                loadHealthTable(hRes.data || [], hRes.threshold || 140);
+                loadStats();
+                loadChart();
+                loadMedications();
+                loadMedicalProfile();
+                loadFamily();
+                loadLocation();
+                loadNotes();
+                loadVaccinations();
+                loadCareLogs();
+            } catch (e) { console.error("初始化失敗", e); }
         }
 
-        async function loadBasicInfo() {
-            const res = await fetch(`/api/residents/${residentId}`).then(r => r.json());
-            if(res.data) {
-                const d = res.data;
-                document.getElementById('resNameTitle').textContent = `照護長輩：${d.FullName} (ID: #${d.ResidentID})`;
-                document.getElementById('info_sex').textContent = d.Sex;
-                document.getElementById('info_room').textContent = d.RoomNumber || '未分配';
-                document.getElementById('info_level').textContent = d.CareLevel;
-                document.getElementById('info_hw').textContent = `${d.Height || '--'} cm / ${d.Weight || '--'} kg`;
-                if (d.DateOfBirth) {
-                    const age = new Date().getFullYear() - new Date(d.DateOfBirth).getFullYear();
-                    document.getElementById('info_age').textContent = `${age} 歲`;
-                }
-            }
+        async function loadHealthTable(historyData, threshold) {
+            const tbody = document.getElementById('healthEditBody');
+            tbody.innerHTML = historyData.map(d => {
+                const isHigh = d.SystolicBP > threshold;
+                return `
+                    <tr>
+                        <td class="text-muted small">${new Date(d.RecordTime).toLocaleString([], {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                        <td class="${isHigh?'text-danger fw-bold':''}">${d.SystolicBP}</td>
+                        <td>${d.DiastolicBP}</td>
+                        <td>${d.HeartRate}</td>
+                        <td class="text-primary">${d.BloodSugar || '--'}</td>
+                        <td class="text-info">${d.BloodOxygen || '--'}</td>
+                        <td class="text-muted small">${d.Notes || '無'}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
-        async function loadLatestHealthAndStats() {
-            try {
-                const summary = await fetch(`/api/reports/health-summary/${residentId}`).then(r => r.json());
-                document.getElementById('stat_sys').textContent = Math.round(summary.summary.AvgSystolic || 0);
-                const v2 = await fetch(`/api/residents/${residentId}/health-history-v2`).then(r => r.json());
-                if (v2.data && v2.data.length > 0) {
-                    const latest = v2.data[0];
-                    document.getElementById('stat_sugar').textContent = latest.BloodSugar || '--';
-                    document.getElementById('stat_oxy').textContent = latest.BloodOxygen || '--';
-                    renderChart(v2.data.slice(0, 15).reverse());
-                }
-            } catch (e) { console.error("加載統計數據出錯", e); }
+        async function loadStats() {
+            const h = await fetch(`/api/reports/health-summary/${residentId}`).then(r => r.json());
+            const s = h.summary;
+            document.getElementById('healthStats').innerHTML = `
+                <div class="col-4"><div class="p-3 bg-white rounded shadow-sm"><h6>平均收縮壓</h6><h3 class="text-danger mb-0">${Math.round(s.AvgSystolic || 0)}</h3></div></div>
+                <div class="col-4"><div class="p-3 bg-white rounded shadow-sm"><h6>平均舒張壓</h6><h3 class="text-warning mb-0">${Math.round(s.AvgDiastolic || 0)}</h3></div></div>
+                <div class="col-4"><div class="p-3 bg-white rounded shadow-sm"><h6>平均心跳</h6><h3 class="text-primary mb-0">${Math.round(s.AvgHeartRate || 0)}</h3></div></div>
+            `;
         }
 
-        function renderChart(chartData) {
+        async function loadChart() {
+            const res = await fetch(`/api/residents/${residentId}/health-history`).then(r => r.json());
             const ctx = document.getElementById('healthChart').getContext('2d');
-            const labels = chartData.map(d => { const dt = new Date(d.RecordTime); return `${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:00`; });
+            const labels = res.data.map(d => new Date(d.RecordTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
             if(healthChart) healthChart.destroy();
-            healthChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: '收縮壓', data: chartData.map(d=>d.SystolicBP), borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,0.1)', tension: 0.4, fill: true },
-                        { label: '心跳', data: chartData.map(d=>d.HeartRate), borderColor: '#0d6efd', borderDash: [5, 5], tension: 0.4, fill: false }
-                    ]
-                },
-                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-            });
+            healthChart = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [ { label: '收縮壓', data: res.data.map(d => d.SystolicBP), borderColor: '#dc3545', tension: 0.3, fill: false }, { label: '心跳', data: res.data.map(d => d.HeartRate), borderColor: '#0d6efd', borderDash: [5, 5], tension: 0.3, fill: false } ] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
         }
 
-        async function loadHistoryTable() {
-            try {
-                const res = await fetch(`/api/residents/${residentId}/health-history-v2`).then(r => r.json());
-                const tbody = document.getElementById('historyTable');
-                if (!res.data || res.data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="py-4">尚無紀錄</td></tr>'; return; }
-                tbody.innerHTML = res.data.map(d => `<tr><td>${new Date(d.RecordTime).toLocaleString([], {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'})}</td><td class="fw-bold">${d.SystolicBP}</td><td>${d.DiastolicBP}</td><td>${d.HeartRate}</td><td>${d.BloodSugar||'--'}</td><td>${d.BloodOxygen||'--'}</td><td class="small text-muted">${d.Notes||'正常'}</td></tr>`).join('');
-            } catch (e) { console.error("加載表格出錯", e); }
+        async function loadMedications() {
+            const res = await fetch(`/api/residents/${residentId}/medications`).then(r => r.json());
+            document.getElementById('medList').innerHTML = res.data.map(m => `
+                <div class="med-item p-2 mb-2 shadow-sm border rounded ${m.IsTaken ? 'taken' : ''}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div><span class="badge bg-secondary me-1">${m.Schedule}</span><strong>${m.MedName}</strong><div class="text-muted small">${m.Dosage}</div></div>
+                        ${m.IsTaken ? '<span class="badge bg-success">✅ 已服用</span>' : '<span class="badge bg-light text-dark border">⏳ 待執行</span>'}
+                    </div>
+                </div>
+            `).join('');
         }
 
-        async function loadNotes() {
-            try {
-                const res = await fetch(`/api/residents/${residentId}/notes`).then(r => r.json());
-                const container = document.getElementById('notesContainer');
-                if (res.data && res.data.length > 0) {
-                    container.innerHTML = res.data.map(n => `<div class="mb-3 p-3 bg-light rounded border-start border-success border-4"><div class="d-flex justify-content-between mb-2"><span class="badge bg-success small">護理紀錄</span><span class="text-muted small">${new Date(n.CreateTime).toLocaleString()}</span></div><div>${n.NoteContent}</div><div class="text-end mt-2 small text-muted">— ${n.StaffName}</div></div>`).join('');
-                } else { container.innerHTML = '<div class="text-center text-muted py-5">尚無護理紀錄</div>'; }
-            } catch (e) { console.error("加載護理紀錄出錯", e); }
+        async function loadMedicalProfile() {
+            const res = await fetch(`/api/residents/${residentId}/medical-profile`).then(r => r.json());
+            document.getElementById('diseaseTags').innerHTML = res.diseases.map(d => `<span class="badge bg-info text-dark border">${d.DiseaseName}</span>`).join('') || '<span class="text-muted small">無紀錄</span>';
+            document.getElementById('orderHistory').innerHTML = res.orders.map(o => `
+                <div class="border-start ps-2 mb-3">
+                    <div class="fw-bold text-dark">${o.MedName} <small>(${o.Dosage})</small></div>
+                    <div style="font-size: 0.7rem;">時段: ${o.Schedule} | 囑咐: ${o.OrderContent}</div>
+                    <div style="font-size: 0.65rem;" class="text-muted">${new Date(o.CreateTime).toLocaleString()}</div>
+                </div>
+            `).join('') || '尚無紀錄';
         }
 
         async function loadLocation() {
@@ -248,24 +331,13 @@
                 const res = await fetch(`/api/residents/${residentId}/location`).then(r => r.json());
                 const display = document.getElementById('locDisplay');
                 const summaryDisplay = document.getElementById('locDisplaySummary');
-                
-                if (res.data && res.data.Zone) {
+                if(res.data) {
                     display.textContent = res.data.Zone;
                     summaryDisplay.textContent = res.data.Zone;
-                    document.getElementById('locTime').textContent = `最後更新：${new Date(res.data.Timestamp).toLocaleTimeString()}`;
-                    
-                    // 確保座標存在且為數字
-                    const locData = {
-                        ...res.data,
-                        X_Coordinate: parseFloat(res.data.X_Coordinate),
-                        Y_Coordinate: parseFloat(res.data.Y_Coordinate)
-                    };
-                    renderFamilyMap(locData);
-                } else { 
-                    display.textContent = '居室內'; 
-                    summaryDisplay.textContent = '居室內'; 
+                    document.getElementById('locTime').textContent = `最後更新: ${new Date(res.data.Timestamp).toLocaleTimeString()}`;
+                    renderFamilyMap(res.data);
                 }
-            } catch (e) { console.error("加載位置出錯", e); }
+            } catch (e) { console.error("定位加載失敗", e); }
         }
 
         const MAP_ZONES_CONFIG = [
@@ -277,70 +349,68 @@
 
         function renderFamilyMap(loc) {
             const overlay = document.getElementById('mapOverlay');
-            const container = document.getElementById('mapContainer');
             overlay.innerHTML = '';
-            
-            MAP_ZONES_CONFIG.forEach(z => { 
-                const label = document.createElement('div'); 
-                label.className = 'map-label'; 
-                label.style.left = z.labelPos[0] + '%'; 
-                label.style.top = z.labelPos[1] + '%'; 
-                label.textContent = z.name; 
-                overlay.appendChild(label); 
+            MAP_ZONES_CONFIG.forEach(z => {
+                const label = document.createElement('div');
+                label.className = 'map-label';
+                label.style.left = z.labelPos[0] + '%';
+                label.style.top = z.labelPos[1] + '%';
+                label.textContent = z.name;
+                overlay.appendChild(label);
             });
-
-            const oldMarker = container.querySelector('.resident-marker'); 
+            const container = document.getElementById('mapContainer');
+            const oldMarker = container.querySelector('.resident-marker');
             if(oldMarker) oldMarker.remove();
-
-            if (!isNaN(loc.X_Coordinate) && !isNaN(loc.Y_Coordinate)) {
-                const marker = document.createElement('div'); 
-                marker.className = 'resident-marker'; 
-                marker.style.left = loc.X_Coordinate + '%'; 
-                marker.style.top = loc.Y_Coordinate + '%'; 
-                
-                // 從標題中嘗試提取姓名，若尚未加載則使用預設值
-                let displayName = "住";
-                const titleText = document.getElementById('resNameTitle').textContent;
-                if (titleText.includes('：')) {
-                    displayName = titleText.split('：')[1].split(' (')[0].substring(0, 1);
-                }
-
-                marker.textContent = displayName;
-                
-                marker.setAttribute('data-bs-toggle', 'popover'); 
-                marker.setAttribute('data-bs-trigger', 'click'); 
-                marker.setAttribute('title', `📍 住民位置`);
-                marker.setAttribute('data-bs-html', 'true');
-                marker.setAttribute('data-bs-content', `目前區域：${loc.Zone}<br>最後更新時間：${new Date(loc.Timestamp).toLocaleTimeString()}`);
-                
-                container.appendChild(marker); 
-                new bootstrap.Popover(marker, {
-                    html: true
-                });
-            }
+            const marker = document.createElement('div');
+            marker.className = 'resident-marker';
+            marker.style.left = loc.X_Coordinate + '%';
+            marker.style.top = loc.Y_Coordinate + '%';
+            marker.textContent = "📍";
+            container.appendChild(marker);
         }
 
-        async function loadMedicalProfile() {
-            try {
-                const res = await fetch(`/api/residents/${residentId}/medical-profile`).then(r => r.json());
-                const diseaseContainer = document.getElementById('diseaseTags');
-                diseaseContainer.innerHTML = res.diseases.length > 0 ? res.diseases.map(d => `<span class="badge badge-disease p-2">${d.DiseaseName}</span>`).join('') : '無';
-                const orderContainer = document.getElementById('orderHistory');
-                orderContainer.innerHTML = res.orders.length > 0 ? res.orders.map(o => `<div class="border-bottom pb-2 mb-2"><div class="fw-bold text-dark">${o.MedName} (${o.Dosage})</div><div class="bg-light p-2 mt-1 rounded small">${o.OrderContent}</div></div>`).join('') : '無';
-            } catch (e) { console.error("加載病歷出錯", e); }
+        async function loadNotes() {
+            const res = await fetch(`/api/residents/${residentId}/notes`).then(r => r.json());
+            document.getElementById('notesContainer').innerHTML = res.data.map(n => `
+                <div class="mb-3 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between mb-1"><span class="fw-bold text-secondary">${n.StaffName}</span><span class="text-muted small">${new Date(n.CreateTime).toLocaleString()}</span></div>
+                    <div>${n.NoteContent}</div>
+                </div>
+            `).join('') || '<div class="text-center text-muted py-3">尚無紀錄</div>';
         }
 
-        async function loadMedications() {
-            try {
-                const res = await fetch(`/api/residents/${residentId}/medications`).then(r => r.json());
-                const list = document.getElementById('medList');
-                if (!res.data || res.data.length === 0) { list.innerHTML = '<div class="text-center py-4">無任務</div>'; return; }
-                list.innerHTML = res.data.map(m => `<div class="med-item p-3 mb-2 rounded shadow-sm ${m.IsTaken ? 'taken' : 'bg-white border'}"><div class="d-flex justify-content-between"><div><div class="badge bg-secondary mb-1">${m.Schedule}</div><div class="${m.IsTaken ? 'text-decoration-line-through text-muted' : 'fw-bold'}">${m.MedName}</div></div><div class="text-end">${m.IsTaken ? '✅' : '⏳'}</div></div></div>`).join('');
-            } catch (e) { console.error("加載用藥出錯", e); }
+        async function loadVaccinations() {
+            const res = await fetch(`/api/residents/${residentId}/vaccinations`).then(r => r.json());
+            document.getElementById('vaccineList').innerHTML = res.data.map(v => `
+                <div class="border-bottom pb-2 mb-2">
+                    <div class="fw-bold text-dark">${v.VaccineType} <small class="text-muted">(${v.Brand})</small></div>
+                    <div style="font-size: 0.7rem;">施打日: ${v.DoseDate}</div>
+                    ${v.NextDoseDate ? `<div class="text-success fw-bold" style="font-size: 0.7rem;">預計補打: ${v.NextDoseDate}</div>` : ''}
+                </div>
+            `).join('') || '<div class="text-center text-muted py-2">尚無紀錄</div>';
         }
 
-        init();
-        setInterval(init, 30000);
+        async function loadCareLogs() {
+            const res = await fetch(`/api/daily-care?res_id=${residentId}`).then(r => r.json());
+            document.getElementById('careLogBody').innerHTML = res.data.map(d => `
+                <tr>
+                    <td style="font-size:0.7rem;">${new Date(d.RecordTime).toLocaleString([], {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                    <td>${d.BathStatus ? '✅' : '❌'}</td>
+                    <td>${d.DiaperCount}次</td>
+                    <td class="small">${d.WoundNote || '無'}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="4" class="text-center text-muted py-3">尚無紀錄</td></tr>';
+        }
+
+        async function loadFamily() {
+            const f = await fetch(`/api/residents/${residentId}/family`).then(r => r.json());
+            document.getElementById('familyList').innerHTML = f.data.map(fm => `<div class="border-bottom py-2"><strong>${fm.FullName}</strong> <small>(${fm.Relationship})</small> ${fm.IsEmergencyContact ? '<span class="badge bg-danger">緊急</span>' : ''}<br><small class="text-muted">${fm.Phone}</small></div>`).join('');
+        }
+
+        function logout() { localStorage.clear(); location.href='/family_login.html'; }
+        
+        // 每 30 秒自動更新一次定位
+        setInterval(loadLocation, 30000);
     </script>
 </body>
 </html>

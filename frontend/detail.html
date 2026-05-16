@@ -229,8 +229,8 @@
             <div class="col"><label class="form-label">性別</label><select class="form-select" id="be_sex"><option>男</option><option>女</option></select></div>
         </div>
         <div class="row g-2 mb-3">
-            <div class="col"><label class="form-label">房號</label><input type="text" class="form-control" id="be_room"></div>
-            <div class="col"><label class="form-label">照護等級</label><select class="form-select" id="be_level"><option>輕度</option><option>中度</option><option>重度</option></select></div>
+            <div class="col"><label class="form-label">房號</label><select class="form-select" id="be_room"></select></div>
+            <div class="col"><label class="form-label">照護等級</label><select class="form-select" id="be_level"></select></div>
         </div>
         <div class="row g-2 mb-3">
             <div class="col"><label class="form-label">身分證字號</label><input type="text" class="form-control" id="be_id_num"></div>
@@ -510,15 +510,29 @@
             if(confirm('確定刪除？')) { await fetch(`/api/family-members/${document.getElementById('f_id').value}`, { method: 'DELETE' }); bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide(); loadFamily(); }
         }
 
+        async function loadOptions() {
+            try {
+                const [r, l] = await Promise.all([
+                    fetch('/api/options/rooms').then(res => res.json()),
+                    fetch('/api/options/care-levels').then(res => res.json())
+                ]);
+                // 🚀 只顯示「病房」(IsWard=1)
+                const wardOptions = r.data.filter(rm => rm.IsWard === 1);
+                document.getElementById('be_room').innerHTML = wardOptions.map(rm => `<option value="${rm.RoomID}">${rm.RoomNumber}</option>`).join('');
+                document.getElementById('be_level').innerHTML = l.data.map(lv => `<option value="${lv.LevelID}">${lv.LevelName}</option>`).join('');
+            } catch (e) { console.error("選項載入失敗", e); }
+        }
+
         let currentResidentRaw = null;
         async function openBasicEditModal() {
+            await loadOptions();
             const res = await fetch(`/api/residents/${resId}`).then(r => r.json());
             if(res.data) {
                 currentResidentRaw = res.data;
                 document.getElementById('be_name').value = res.data.FullName;
                 document.getElementById('be_sex').value = res.data.Sex;
-                document.getElementById('be_room').value = res.data.RoomNumber;
-                document.getElementById('be_level').value = res.data.CareLevel;
+                document.getElementById('be_room').value = res.data.RoomID || "";
+                document.getElementById('be_level').value = res.data.CareLevelID || "";
                 document.getElementById('be_id_num').value = res.data.IdentityNumber || '';
                 document.getElementById('be_health_num').value = res.data.HealthCardNumber || '';
                 bootstrap.Modal.getOrCreateInstance('#basicEditModal').show();
@@ -526,12 +540,16 @@
         }
 
         async function saveBasicInfo() {
+            const roomSelect = document.getElementById('be_room');
+            const levelSelect = document.getElementById('be_level');
             const body = { 
                 ...currentResidentRaw, 
                 FullName: document.getElementById('be_name').value,
                 Sex: document.getElementById('be_sex').value, 
-                CareLevel: document.getElementById('be_level').value, 
-                RoomNumber: document.getElementById('be_room').value,
+                CareLevel: levelSelect.options[levelSelect.selectedIndex].text, 
+                RoomNumber: roomSelect.options[roomSelect.selectedIndex].text,
+                CareLevelID: parseInt(levelSelect.value),
+                RoomID: parseInt(roomSelect.value),
                 IdentityNumber: document.getElementById('be_id_num').value,
                 HealthCardNumber: document.getElementById('be_health_num').value
             };

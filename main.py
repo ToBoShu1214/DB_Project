@@ -44,6 +44,10 @@ class ResidentData(BaseModel):
     Allergies: Optional[str] = None # 過敏原
     IdentityNumber: Optional[str] = None # 身分證字號
     HealthCardNumber: Optional[str] = None # 健保卡號
+    # 🚀 新增系統關聯 ID
+    RoomID: Optional[int] = None
+    StatusID: Optional[int] = None
+    CareLevelID: Optional[int] = None
 
 class VaccinationRecordData(BaseModel):
     ResidentID: int
@@ -176,18 +180,63 @@ def family_register(f: FamilyRegisterRequest):
 # ==========================================
 # 2. 住民管理 
 # ==========================================
+@app.get("/api/options/rooms")
+def get_rooms():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM SystemRoom")
+    data = cursor.fetchall(); conn.close()
+    return {"status": "success", "data": data}
+
+@app.get("/api/options/statuses")
+def get_statuses():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM SystemStatus")
+    data = cursor.fetchall(); conn.close()
+    return {"status": "success", "data": data}
+
+@app.get("/api/options/care-levels")
+def get_care_levels():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM SystemCareLevel")
+    data = cursor.fetchall(); conn.close()
+    return {"status": "success", "data": data}
+
 @app.get("/api/residents")
 def get_residents():
     conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute("SELECT * FROM ResidentIdentity ORDER BY ResidentID DESC")
+    # 🚀 使用 JOIN 取得關聯表的名稱，確保前端顯示正確
+    cursor.execute("""
+        SELECT ri.*, sr.RoomNumber as RoomNumberDisplay, ss.StatusName as StatusDisplay, scl.LevelName as CareLevelDisplay
+        FROM ResidentIdentity ri
+        LEFT JOIN SystemRoom sr ON ri.RoomID = sr.RoomID
+        LEFT JOIN SystemStatus ss ON ri.StatusID = ss.StatusID
+        LEFT JOIN SystemCareLevel scl ON ri.CareLevelID = scl.LevelID
+        ORDER BY ri.ResidentID DESC
+    """)
     data = cursor.fetchall(); conn.close()
+    # 為了不破壞前端，將 Display 名稱覆蓋回原欄位名
+    for r in data:
+        if r['RoomNumberDisplay']: r['RoomNumber'] = r['RoomNumberDisplay']
+        if r['StatusDisplay']: r['Status'] = r['StatusDisplay']
+        if r['CareLevelDisplay']: r['CareLevel'] = r['CareLevelDisplay']
     return {"status": "success", "data": data}
 
 @app.get("/api/residents/{res_id}")
 def get_resident_single(res_id: int):
     conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute("SELECT * FROM ResidentIdentity WHERE ResidentID = %s", (res_id,))
+    cursor.execute("""
+        SELECT ri.*, sr.RoomNumber as RoomNumberDisplay, ss.StatusName as StatusDisplay, scl.LevelName as CareLevelDisplay
+        FROM ResidentIdentity ri
+        LEFT JOIN SystemRoom sr ON ri.RoomID = sr.RoomID
+        LEFT JOIN SystemStatus ss ON ri.StatusID = ss.StatusID
+        LEFT JOIN SystemCareLevel scl ON ri.CareLevelID = scl.LevelID
+        WHERE ri.ResidentID = %s
+    """, (res_id,))
     data = cursor.fetchone(); conn.close()
+    if data:
+        if data['RoomNumberDisplay']: data['RoomNumber'] = data['RoomNumberDisplay']
+        if data['StatusDisplay']: data['Status'] = data['StatusDisplay']
+        if data['CareLevelDisplay']: data['CareLevel'] = data['CareLevelDisplay']
     return {"status": "success", "data": data}
 
 @app.post("/api/residents/upload")
@@ -195,7 +244,15 @@ async def upload_excel(file: UploadFile = File(...)):
     contents = await file.read(); df = pd.read_excel(io.BytesIO(contents))
     conn = get_db_connection(); cursor = conn.cursor()
     for _, row in df.iterrows():
-        cursor.execute("INSERT INTO ResidentIdentity (FullName, Sex, DateOfBirth, CareLevel, RoomNumber, Status) VALUES (%s,%s,%s,%s,%s,%s)", (str(row['姓名']), str(row['性別']), row['出生年月日'].strftime('%Y-%m-%d'), str(row['照護等級']), str(row['房號']), str(row['目前狀態'])))
+        # 這裡上傳暫時還是維持字串寫入舊欄位，或是嘗試尋找 ID
+        cursor.execute("""
+            INSERT INTO ResidentIdentity (FullName, Sex, DateOfBirth, CareLevel, RoomNumber, Status, CareLevelID, RoomID, StatusID) 
+            VALUES (%s,%s,%s,%s,%s,%s, 
+                (SELECT LevelID FROM SystemCareLevel WHERE LevelName = %s LIMIT 1),
+                (SELECT RoomID FROM SystemRoom WHERE RoomNumber = %s LIMIT 1),
+                (SELECT StatusID FROM SystemStatus WHERE StatusName = %s LIMIT 1))
+        """, (str(row['姓名']), str(row['性別']), row['出生年月日'].strftime('%Y-%m-%d'), str(row['照護等級']), str(row['房號']), str(row['目前狀態']),
+              str(row['照護等級']), str(row['房號']), str(row['目前狀態'])))
     conn.commit(); conn.close()
     return {"status": "success"}
 
@@ -203,9 +260,9 @@ async def upload_excel(file: UploadFile = File(...)):
 def create_resident(res: ResidentData):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO ResidentIdentity (FullName, Sex, DateOfBirth, CareLevel, RoomNumber, Status, Height, Weight, CDR, CMS, Allergies, IdentityNumber, HealthCardNumber) 
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """, (res.FullName, res.Sex, res.DateOfBirth, res.CareLevel, res.RoomNumber, res.Status, res.Height, res.Weight, res.CDR, res.CMS, res.Allergies, res.IdentityNumber, res.HealthCardNumber))
+        INSERT INTO ResidentIdentity (FullName, Sex, DateOfBirth, CareLevel, RoomNumber, Status, Height, Weight, CDR, CMS, Allergies, IdentityNumber, HealthCardNumber, RoomID, StatusID, CareLevelID) 
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """, (res.FullName, res.Sex, res.DateOfBirth, res.CareLevel, res.RoomNumber, res.Status, res.Height, res.Weight, res.CDR, res.CMS, res.Allergies, res.IdentityNumber, res.HealthCardNumber, res.RoomID, res.StatusID, res.CareLevelID))
     conn.commit(); conn.close()
     return {"status": "success"}
 
@@ -215,10 +272,10 @@ def update_resident(res_id: int, res: ResidentData):
     cursor.execute("""
         UPDATE ResidentIdentity 
         SET FullName=%s, Sex=%s, DateOfBirth=%s, CareLevel=%s, RoomNumber=%s, Status=%s, BpThreshold=%s, Height=%s, Weight=%s, CDR=%s, CMS=%s, Allergies=%s,
-            IdentityNumber=%s, HealthCardNumber=%s
+            IdentityNumber=%s, HealthCardNumber=%s, RoomID=%s, StatusID=%s, CareLevelID=%s
         WHERE ResidentID=%s
     """, (res.FullName, res.Sex, res.DateOfBirth, res.CareLevel, res.RoomNumber, res.Status, res.BpThreshold, res.Height, res.Weight, res.CDR, res.CMS, res.Allergies, 
-          res.IdentityNumber, res.HealthCardNumber, res_id))
+          res.IdentityNumber, res.HealthCardNumber, res.RoomID, res.StatusID, res.CareLevelID, res_id))
     conn.commit(); conn.close()
     return {"status": "success"}
 
@@ -551,7 +608,60 @@ def init_db():
             cursor.execute("ALTER TABLE DailyCareRecord DROP INDEX daily_res_date")
         except: pass
 
+        # 9. 🚀 建立系統設定表 (房號、狀態、等級)
+        cursor.execute("CREATE TABLE IF NOT EXISTS SystemRoom (RoomID INT AUTO_INCREMENT PRIMARY KEY, RoomNumber VARCHAR(50) UNIQUE, IsWard TINYINT DEFAULT 1)")
+        
+        # 🚀 確保 IsWard 欄位存在 (針對已建立的舊表)
+        try: cursor.execute("ALTER TABLE SystemRoom ADD COLUMN IsWard TINYINT DEFAULT 1")
+        except: pass
+        
+        cursor.execute("CREATE TABLE IF NOT EXISTS SystemStatus (StatusID INT AUTO_INCREMENT PRIMARY KEY, StatusName VARCHAR(50) UNIQUE)")
+        cursor.execute("CREATE TABLE IF NOT EXISTS SystemCareLevel (LevelID INT AUTO_INCREMENT PRIMARY KEY, LevelName VARCHAR(50) UNIQUE)")
+
+        # 寫入預設值
+        # 區分病房 (IsWard=1) 與公共區域 (IsWard=0)
+        wards = ['401房', '402房', '403房', '404房', '405房', '406房', '407房', '408房', '409房', '410房', '411房', '412房']
+        public_areas = ['交誼廳', '護理站', '行政辦公室', '走廊']
+        
+        for r in wards: cursor.execute("INSERT IGNORE INTO SystemRoom (RoomNumber, IsWard) VALUES (%s, 1)", (r,))
+        for r in public_areas: cursor.execute("INSERT IGNORE INTO SystemRoom (RoomNumber, IsWard) VALUES (%s, 0)", (r,))
+        
+        # 確保現有資料的 IsWard 欄位正確 (強制更新一次)
+        cursor.execute("UPDATE SystemRoom SET IsWard = 1 WHERE RoomNumber LIKE '4%房'")
+        cursor.execute("UPDATE SystemRoom SET IsWard = 0 WHERE RoomNumber IN ('交誼廳', '護理站', '行政辦公室', '走廊')")
+        
+        statuses = ['入住中', '住院', '請假', '退宿']
+        for s in statuses: cursor.execute("INSERT IGNORE INTO SystemStatus (StatusName) VALUES (%s)", (s,))
+        
+        levels = ['輕度', '中度', '重度']
+        for l in levels: cursor.execute("INSERT IGNORE INTO SystemCareLevel (LevelName) VALUES (%s)", (l,))
+
+        # 10. 擴充 ResidentIdentity 增加 ID 關聯欄位
+        try: cursor.execute("ALTER TABLE ResidentIdentity ADD COLUMN RoomID INT")
+        except: pass
+        try: cursor.execute("ALTER TABLE ResidentIdentity ADD COLUMN StatusID INT")
+        except: pass
+        try: cursor.execute("ALTER TABLE ResidentIdentity ADD COLUMN CareLevelID INT")
+        except: pass
+
+        # 執行資料遷移 (將舊的字串對應到 ID)
+        cursor.execute("UPDATE ResidentIdentity ri JOIN SystemRoom sr ON ri.RoomNumber = sr.RoomNumber SET ri.RoomID = sr.RoomID WHERE ri.RoomID IS NULL")
+        cursor.execute("UPDATE ResidentIdentity ri JOIN SystemStatus ss ON ri.Status = ss.StatusName SET ri.StatusID = ss.StatusID WHERE ri.StatusID IS NULL")
+        cursor.execute("UPDATE ResidentIdentity ri JOIN SystemCareLevel scl ON ri.CareLevel = scl.LevelName SET ri.CareLevelID = scl.LevelID WHERE ri.CareLevelID IS NULL")
+
+        # 🚀 11. 加入正式的 Foreign Key 約束 (確保資料完整性)
+        try:
+            cursor.execute("ALTER TABLE ResidentIdentity ADD CONSTRAINT fk_room FOREIGN KEY (RoomID) REFERENCES SystemRoom(RoomID)")
+        except: pass
+        try:
+            cursor.execute("ALTER TABLE ResidentIdentity ADD CONSTRAINT fk_status FOREIGN KEY (StatusID) REFERENCES SystemStatus(StatusID)")
+        except: pass
+        try:
+            cursor.execute("ALTER TABLE ResidentIdentity ADD CONSTRAINT fk_level FOREIGN KEY (CareLevelID) REFERENCES SystemCareLevel(LevelID)")
+        except: pass
+
         conn.commit(); conn.close()
+
         print("✅ 資料庫自動升級與初始化成功")
     except Exception as e:
         print(f"⚠️ 資料庫初始化跳過或失敗: {e}")

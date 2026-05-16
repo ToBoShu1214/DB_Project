@@ -235,15 +235,15 @@
         <div class="modal-body"><form id="resForm">
             <input type="hidden" id="resId">
             <div class="mb-2"><label class="form-label">姓名</label><input type="text" class="form-control" id="r_name" required></div>
-            <div class="row g-2 mb-2"><div class="col"><label class="form-label">性別</label><select class="form-select" id="r_sex"><option>男</option><option>女</option></select></div><div class="col"><label class="form-label">房號</label><input type="text" class="form-control" id="r_room" required></div></div>
+            <div class="row g-2 mb-2"><div class="col"><label class="form-label">性別</label><select class="form-select" id="r_sex"><option>男</option><option>女</option></select></div><div class="col"><label class="form-label">房號</label><select class="form-select" id="r_room" required></select></div></div>
             <div class="mb-2"><label class="form-label">生日</label><input type="date" class="form-control" id="r_dob" required></div>
             <div class="row g-2 mb-2">
                 <div class="col"><label class="form-label">身高 (cm)</label><input type="number" step="0.1" class="form-control" id="r_height" placeholder="例如: 170.5"></div>
                 <div class="col"><label class="form-label">體重 (kg)</label><input type="number" step="0.1" class="form-control" id="r_weight" placeholder="例如: 65.2"></div>
             </div>
             <div class="row g-2 mb-2">
-                <div class="col"><label class="form-label">照護等級</label><select class="form-select" id="r_level"><option>輕度</option><option>中度</option><option>重度</option></select></div>
-                <div class="col"><label class="form-label">目前狀態</label><select class="form-select" id="r_status"><option>入住中</option><option>住院</option><option>請假</option><option>退宿</option></select></div>
+                <div class="col"><label class="form-label">照護等級</label><select class="form-select" id="r_level"></select></div>
+                <div class="col"><label class="form-label">目前狀態</label><select class="form-select" id="r_status"></select></div>
             </div>
         </form></div>
         <div class="modal-footer"><button class="btn btn-secondary me-auto" id="btnDelRes" style="display:none" onclick="deleteRes()">🚨 徹底刪除</button><button class="btn btn-primary" onclick="saveRes()">儲存資料</button></div>
@@ -306,9 +306,40 @@
             `).join('');
         }
 
+        // --- 全域選項 ---
+        let systemOptions = { rooms: [], statuses: [], levels: [] };
+        async function loadOptions() {
+            try {
+                const [r, s, l] = await Promise.all([
+                    fetch('/api/options/rooms').then(res => res.json()),
+                    fetch('/api/options/statuses').then(res => res.json()),
+                    fetch('/api/options/care-levels').then(res => res.json())
+                ]);
+                systemOptions.rooms = r.data;
+                systemOptions.statuses = s.data;
+                systemOptions.levels = l.data;
+
+                // 更新篩選器
+                const filter = document.getElementById('resFilter');
+                const currentFilter = filter.value;
+                filter.innerHTML = '<option value="全部">全部狀態</option>' + 
+                    systemOptions.statuses.map(st => `<option value="${st.StatusName}">${st.StatusName}</option>`).join('');
+                if ([...filter.options].some(o => o.value === currentFilter)) filter.value = currentFilter;
+
+                // 更新 Modal 內的下拉選單
+                document.getElementById('r_status').innerHTML = systemOptions.statuses.map(st => `<option value="${st.StatusID}">${st.StatusName}</option>`).join('');
+                document.getElementById('r_level').innerHTML = systemOptions.levels.map(lv => `<option value="${lv.LevelID}">${lv.LevelName}</option>`).join('');
+                
+                // 🚀 只顯示「病房」(IsWard=1)
+                const wardOptions = systemOptions.rooms.filter(rm => rm.IsWard === 1);
+                document.getElementById('r_room').innerHTML = wardOptions.map(rm => `<option value="${rm.RoomID}">${rm.RoomNumber}</option>`).join('');
+            } catch (e) { console.error("選項載入失敗", e); }
+        }
+
         // --- 住民管理 ---
         let allRes = [];
         async function loadRes() {
+            if (systemOptions.rooms.length === 0) await loadOptions();
             const r = await fetch('/api/residents').then(res=>res.json());
             allRes = r.data; renderResTable();
             
@@ -320,13 +351,13 @@
             const key = document.getElementById('resSearch').value.toLowerCase();
             const filter = document.getElementById('resFilter').value;
             const tbody = document.getElementById('resTable');
-            const filtered = allRes.filter(r => (r.FullName.includes(key) || r.ResidentID.toString().includes(key) || r.RoomNumber.includes(key)) && (filter==='全部' || r.Status===filter));
+            const filtered = allRes.filter(r => (r.FullName.includes(key) || r.ResidentID.toString().includes(key) || (r.RoomNumber && r.RoomNumber.includes(key))) && (filter==='全部' || r.Status===filter));
             tbody.innerHTML = filtered.map(r => `
                 <tr class="row-${r.Status}">
                     <td>#${r.ResidentID}</td>
                     <td class="fw-bold">${r.FullName}</td>
-                    <td><span class="badge bg-info text-dark">${r.RoomNumber}</span></td>
-                    <td><span class="badge ${getStatusBadge(r.Status)}">${r.Status}</span></td>
+                    <td><span class="badge bg-info text-dark">${r.RoomNumber || '未分配'}</span></td>
+                    <td><span class="badge ${getStatusBadge(r.Status)}">${r.Status || '未知'}</span></td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-secondary" onclick='openResModal(${JSON.stringify(r)})'>編輯</button>
                         <button class="btn btn-sm btn-primary" onclick="location.href='/detail.html?id=${r.ResidentID}'">數據</button>
@@ -347,24 +378,31 @@
             if(data){
                 document.getElementById('r_name').value = data.FullName;
                 document.getElementById('r_sex').value = data.Sex;
-                document.getElementById('r_room').value = data.RoomNumber;
+                document.getElementById('r_room').value = data.RoomID || "";
                 document.getElementById('r_dob').value = data.DateOfBirth;
                 document.getElementById('r_height').value = data.Height || '';
                 document.getElementById('r_weight').value = data.Weight || '';
-                document.getElementById('r_level').value = data.CareLevel;
-                document.getElementById('r_status').value = data.Status;
+                document.getElementById('r_level').value = data.CareLevelID || "";
+                document.getElementById('r_status').value = data.StatusID || "";
             }
             resModal.show();
         }
         async function saveRes(){
             const id = document.getElementById('resId').value;
+            const statusSelect = document.getElementById('r_status');
+            const levelSelect = document.getElementById('r_level');
+            const roomSelect = document.getElementById('r_room');
+
             const body = { 
                 FullName:document.getElementById('r_name').value, 
                 Sex:document.getElementById('r_sex').value, 
                 DateOfBirth:document.getElementById('r_dob').value, 
-                CareLevel:document.getElementById('r_level').value, 
-                RoomNumber:document.getElementById('r_room').value, 
-                Status:document.getElementById('r_status').value, 
+                CareLevel: levelSelect.options[levelSelect.selectedIndex].text, 
+                RoomNumber: roomSelect.options[roomSelect.selectedIndex].text, 
+                Status: statusSelect.options[statusSelect.selectedIndex].text, 
+                CareLevelID: parseInt(levelSelect.value),
+                RoomID: parseInt(roomSelect.value),
+                StatusID: parseInt(statusSelect.value),
                 BpThreshold: 140,
                 Height: document.getElementById('r_height').value ? parseFloat(document.getElementById('r_height').value) : null,
                 Weight: document.getElementById('r_weight').value ? parseFloat(document.getElementById('r_weight').value) : null
