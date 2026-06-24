@@ -156,9 +156,9 @@ INSERT INTO NursingNote (ResidentID, StaffID, NoteContent) VALUES
 
 -- 10. 即時位置紀錄 (對應地圖功能)
 INSERT INTO ResidentSighting (ResidentID, Zone, X_Coordinate, Y_Coordinate) VALUES
-    ((SELECT ResidentID FROM ResidentIdentity WHERE FullName='陳大文'), '交誼廳', 12.5, 8.3),
-    ((SELECT ResidentID FROM ResidentIdentity WHERE FullName='林秀英'), '402房', 30.0, 14.0),
-    ((SELECT ResidentID FROM ResidentIdentity WHERE FullName='張福生'), '護理站', 5.0, 20.0);
+    ((SELECT ResidentID FROM ResidentIdentity WHERE FullName='陳大文'), '401房', 17.35, 31.13),
+    ((SELECT ResidentID FROM ResidentIdentity WHERE FullName='林秀英'), '402房', 37.15, 66.59),
+    ((SELECT ResidentID FROM ResidentIdentity WHERE FullName='張福生'), '403房 (浴室)', 46.65, 36.13);
 
 -- 11. 日常照護紀錄
 INSERT INTO DailyCareRecord (ResidentID, StaffID, RecordTime, BathStatus, DiaperCount, WoundNote) VALUES
