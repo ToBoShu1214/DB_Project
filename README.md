@@ -32,47 +32,28 @@
 
 ## 🚀 環境建置與啟動步驟
 
-### 1. 建立資料庫 (使用 Docker)
+本專案採用 Docker 全環境容器化，將後端 API、資料庫與資料庫管理工具完美整合，無需在本地安裝 Python 或手動設定環境。
 
-在專案根目錄建立 `docker-compose.yml` 並寫入以下內容，接著執行 `docker-compose up -d`：
+### 1. 一鍵啟動所有服務
 
-    version: '3.8'
-    services:
-      db-db:
-        image: mysql:8.0
-        container_name: smart-care-db
-        restart: always
-        environment:
-          MYSQL_ROOT_PASSWORD: rootPassword
-          MYSQL_DATABASE: my-db
-          MYSQL_USER: mymy
-          MYSQL_PASSWORD: myPassword
-        ports:
-          - "3306:3306"
-        command: --default-authentication-plugin=mysql_native_password
+請確保你的電腦已安裝 Docker 與 Docker Desktop，並確認其處於 Running 狀態。接著在專案根目錄下開啟終端機，執行以下指令：
 
-### 2. 資料庫初始化 (SQL Table)
+```bash
+docker-compose up -d --build
+```
 
-請務必在資料庫中建立以下資料表，並注意關鍵欄位：
-- **StaffAccount**: 加入 `IsApproved` (TINYINT, 預設 0), `Role` (VARCHAR)。
-- **FamilyMember**: 加入 `Password` (預設 123456)。
-- **HealthRecord**: 加入 `RecordTime` (DATETIME)。
-- **MedicationRecord**: 加入 `IsTaken` (TINYINT, 預設 0)。
+這會自動建立並啟動以下三個服務：
+- **後端 API (Python FastAPI)**: 可於 `http://localhost:8000` 存取
+- **MariaDB 資料庫**: 運行於 port `3306` (帳密為 `mymy` / `myPassword`)
+- **phpMyAdmin (資料庫網頁管理)**: 可於 `http://localhost:8082` 存取
 
-### 3. 安裝 Python 依賴套件
+### 2. 資料庫自動初始化
 
-    pip install fastapi uvicorn pymysql pandas openpyxl python-multipart
+本專案已設定自動初始化腳本 (`init.sql`)。在執行上述啟動指令後，Docker 會自動為你建立所有必要的資料表，並且內建一組預設管理員帳號：
+- **帳號**: `admin`
+- **密碼**: `admin`
 
-### 4. 修改資料庫連線位址
-
-由於 `main.py` 預設連線 `host='db-db'` (Docker 內網使用)，若是在**本地端**開發，請將 `main.py` 中的 `get_db_connection` 暫時修改為：
-`host='127.0.0.1'`
-
-### 5. 啟動伺服器
-
-    uvicorn main:app --reload
-
-啟動後請訪問：`http://localhost:8000`
+你可以直接使用此帳號登入系統，或前往 `http://localhost:8082` (phpMyAdmin) 查看資料庫狀態。
 
 ---
 
