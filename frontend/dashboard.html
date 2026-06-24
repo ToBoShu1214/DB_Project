@@ -265,11 +265,29 @@
         <div class="modal-footer"><button class="btn btn-outline-danger me-auto" id="btnDelStaff" style="display:none" onclick="deleteStaffConfirm()">🗑️ 刪除帳號</button><button class="btn btn-danger" onclick="saveStaff()">確定儲存</button></div>
     </div></div></div>
 
+    <!-- 家屬彈窗 -->
+    <div class="modal fade" id="famEditModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header bg-success text-white"><h5 class="modal-title">家屬資料編輯</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><form id="famEditForm">
+            <input type="hidden" id="f_id">
+            <div class="mb-2"><label class="form-label">住民 ID</label><input type="number" class="form-control" id="f_res_id" required></div>
+            <div class="mb-2"><label class="form-label">姓名</label><input type="text" class="form-control" id="f_name" required></div>
+            <div class="mb-2"><label class="form-label">電話</label><input type="text" class="form-control" id="f_phone" required></div>
+            <div class="mb-2"><label class="form-label">關係</label><input type="text" class="form-control" id="f_rel" required></div>
+            <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="f_emergency">
+                <label class="form-check-label fw-bold text-danger">設為緊急聯絡人</label>
+            </div>
+        </form></div>
+        <div class="modal-footer"><button class="btn btn-outline-danger me-auto" onclick="deleteFamConfirm()">🗑️ 刪除帳號</button><button class="btn btn-success" onclick="saveFamEdit()">確定儲存</button></div>
+    </div></div></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const resModal = new bootstrap.Modal('#resModal');
         const staffModal = new bootstrap.Modal('#staffModal');
         const moveModal = new bootstrap.Modal('#moveModal');
+        const familyEditModal = new bootstrap.Modal('#famEditModal');
         
         const role = localStorage.getItem('role'); 
         const user = localStorage.getItem('userName');
