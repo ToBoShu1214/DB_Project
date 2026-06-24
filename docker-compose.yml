@@ -7,24 +7,21 @@ services:
     container_name: smartcare_backend
     ports:
       - "8000:8000"          # 你的 Python API 跑在 8000 port
-    environment:
-      # 告訴 Python 怎麼連線到下面的 MariaDB
-      - DATABASE_URL=mysql+pymysql://mymy:myPassword@db-db:3306/my-db
     depends_on:
-      - db-db
+      - db-proj-db
     volumes:
       - .:/app               # 任意門：存檔即更新
     networks:
       - care-network
 
-  # 2. MariaDB 資料庫 (完全保留老師的設定，確保期末符合規格)
-  db-db:
+  # 2. MariaDB 資料庫
+  db-proj-db:
     image: mariadb:10.6
     container_name: smartcare_db
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: myPassword
-      MYSQL_DATABASE: my-db
+      MYSQL_DATABASE: csieDBTeam23
       MYSQL_USER: mymy
       MYSQL_PASSWORD: myPassword
     ports:
@@ -32,6 +29,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql
     networks:
       - care-network
 
@@ -41,13 +39,13 @@ services:
     container_name: smartcare_pma
     restart: always
     environment:
-      PMA_HOST: db-db        # 內部連線對準上面的 db-db
+      PMA_HOST: db-proj-db   # 內部連線對準上面的 db-proj-db
       PMA_PORT: 3306
       MYSQL_ROOT_PASSWORD: myPassword
     ports:
       - "8082:80"            # 瀏覽器輸入 localhost:8082 就能進管理畫面
     depends_on:
-      - db-db
+      - db-proj-db
     networks:
       - care-network
 

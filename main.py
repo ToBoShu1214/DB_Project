@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
 import pymysql
+from db_config import DB_HOST, DB_NAME, DB_USER, DB_PASS
 import pandas as pd
 import io
 import os
@@ -11,16 +12,15 @@ from urllib.parse import urlparse
 app = FastAPI(title="智慧長照管理系統 API", version="6.1.0")
 
 def get_db_connection():
-    # 直接使用 Docker Compose 中定義的 MariaDB 資訊
-    # 這樣最穩定，不會因為解析環境變數失敗而卡住
+    # 連線設定統一從 db_config.py 讀取，老師請修改該檔案
     try:
         return pymysql.connect(
-            host='db-db', 
-            user='mymy', 
-            password='myPassword', 
-            database='my-db', 
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASS,
+            database=DB_NAME,
             cursorclass=pymysql.cursors.DictCursor,
-            connect_timeout=3 # 3 秒沒連上就放棄，不要讓網頁轉圈
+            connect_timeout=3  # 3 秒沒連上就放棄，不要讓網頁轉圈
         )
     except Exception as e:
         print(f"❌ 資料庫連線失敗: {e}")

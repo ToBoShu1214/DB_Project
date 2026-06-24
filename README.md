@@ -49,11 +49,34 @@ docker-compose up -d --build
 
 ### 2. 資料庫自動初始化
 
-本專案已設定自動初始化腳本 (`init.sql`)。在執行上述啟動指令後，Docker 會自動為你建立所有必要的資料表，並且內建一組預設管理員帳號：
-- **帳號**: `admin`
-- **密碼**: `admin`
+本專案已設定自動初始化腳本：
+- `init.sql`：建立所有必要的資料表，並內建一組預設管理員帳號（**帳號**: `admin` / **密碼**: `admin`）。
+- `seed.sql`：補上示範用的住民、家屬、生理數據等測試資料，避免登入後畫面空白。
 
-你可以直接使用此帳號登入系統，或前往 `http://localhost:8082` (phpMyAdmin) 查看資料庫狀態。
+這兩個腳本會在 `docker-compose up -d --build` **第一次建立資料庫資料卷 (volume) 時**依檔名順序自動執行（`init.sql` 先、`seed.sql` 後），不需要手動匯入。
+
+你可以直接用 `admin` / `admin` 登入系統，或前往 `http://localhost:8082` (phpMyAdmin) 查看資料庫狀態。
+
+> ⚠️ 這兩個腳本**只有在資料卷第一次建立時才會自動跑**。如果你已經 `docker-compose up` 過、本機已經有舊的資料卷，修改 `init.sql` / `seed.sql` 後不會自動套用，必須先清空重建：
+> ```bash
+> docker-compose down -v   # 清除容器與資料卷 (會清空資料庫內容)
+> docker-compose up -d --build
+> ```
+
+### 3. 修改資料庫連線資訊
+
+資料庫的連線設定（host / 資料庫名稱 / 帳號 / 密碼）**統一寫在 [`db_config.py`](db_config.py)**，`main.py` 會從這個檔案讀取，不需要改動主程式：
+
+```python
+DB_HOST = 'db-proj-db'   # 主機名稱，本機測試對應 docker-compose.yml 的服務名稱
+DB_NAME = 'csieDBTeam23' # 資料庫名稱
+DB_USER = 'mymy'         # 帳號
+DB_PASS = 'myPassword'   # 密碼
+```
+
+- **本機用 Docker 測試**：這四個值要跟 [`docker-compose.yml`](docker-compose.yml) 裡 MariaDB 服務 (`db-proj-db`) 的 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 一致。
+- **上傳給老師正式跑分**：改成老師指派給你們這組的帳密（資料庫名稱規則為 `csieDBTeamXX`，例如第 1 組是 `csieDBTeam01`）。
+- 改完 `DB_NAME` 後，如果是本機環境，記得依上面的方式 `docker-compose down -v` 後再 `up -d --build`，新的資料庫名稱才會生效。
 
 ---
 
