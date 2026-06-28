@@ -62,7 +62,7 @@
 
         document.getElementById('loginForm').addEventListener('submit', async (e)=>{
             e.preventDefault();
-            const res = await fetch('../api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Username: document.getElementById('l_user').value, Password: document.getElementById('l_pass').value})}).then(r=>r.json());
+            const res = await fetch('../api.php?endpoint=login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Username: document.getElementById('l_user').value, Password: document.getElementById('l_pass').value})}).then(r=>r.json());
             if(res.status==='success'){ 
                 localStorage.setItem('userName', res.user_info.RealName); 
                 localStorage.setItem('staffId', res.user_info.StaffID); 
@@ -77,7 +77,7 @@
         document.getElementById('regForm').addEventListener('submit', async (e)=>{
             e.preventDefault();
             const body = { RealName: document.getElementById('r_name').value, Username: document.getElementById('r_user').value, Role: document.getElementById('r_role').value, Password: document.getElementById('r_pass').value };
-            const res = await fetch('../api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r=>r.json());
+            const res = await fetch('../api.php?endpoint=register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r=>r.json());
             if(res.status==='success'){ showToast(res.message, 'success'); document.getElementById('regForm').reset(); bootstrap.Tab.getOrCreateInstance(document.querySelector('button[data-bs-target="#login"]')).show(); }
             else showToast(res.message, 'danger');
         });

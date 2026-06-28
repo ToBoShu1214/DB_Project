@@ -297,7 +297,7 @@
                     if(docSection) docSection.style.display = 'none';
                 }
 
-                const res = await fetch(`../api/residents/${resId}`).then(r => {
+                const res = await fetch(`../api.php?endpoint=residents/${resId}`).then(r => {
                     if (!r.ok) throw new Error("無法取得住民基本資料");
                     return r.json();
                 });
@@ -327,7 +327,7 @@
         async function init() {
             try {
                 document.getElementById('healthEditBody').innerHTML = '<tr><td colspan="6" class="text-center">資料讀取中...</td></tr>';
-                const res = await fetch(`../api/residents/${resId}/health-history-v2`).then(r => r.json());
+                const res = await fetch(`../api.php?endpoint=residents/${resId}/health-history-v2`).then(r => r.json());
                 document.getElementById('healthEditBody').innerHTML = ''; 
                 const threshold = res.threshold || 140;
                 await loadHealthTable(res.data || [], threshold); 
@@ -350,7 +350,7 @@
 
         async function loadMedicalProfile() {
             try {
-                const res = await fetch(`../api/residents/${resId}/medical-profile`).then(r => r.json());
+                const res = await fetch(`../api.php?endpoint=residents/${resId}/medical-profile`).then(r => r.json());
                 const currentRole = localStorage.getItem('role') || '';
                 const isDoctor = currentRole.includes('醫師') || currentRole.includes('Doctor') || currentRole.includes('管理');
                 
@@ -375,7 +375,7 @@
 
         async function deleteOrder(orderId) {
             if(confirm('確定要撤銷此項醫師醫囑嗎？')) {
-                const res = await fetch(`../api/medical-orders/${orderId}`, { method: 'DELETE' }).then(r => r.json());
+                const res = await fetch(`../api.php?endpoint=medical-orders/${orderId}`, { method: 'DELETE' }).then(r => r.json());
                 if(res.status === 'success') { loadMedicalProfile(); loadMedications(); }
             }
         }
@@ -434,12 +434,12 @@
                 Notes: row.querySelector('.row-notes').value || "無"
             };
             if(!payload.SystolicBP || !payload.DiastolicBP || !payload.HeartRate) { alert("請填寫數值"); return; }
-            const result = await fetch('../api/health-records', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r=>r.json());
+            const result = await fetch('../api.php?endpoint=health-records', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r=>r.json());
             if (result.status === 'success') init(); else alert('儲存失敗');
         }
 
         async function loadChart() {
-            const res = await fetch(`../api/residents/${resId}/health-history`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/health-history`).then(r => r.json());
             const ctx = document.getElementById('healthChart').getContext('2d');
             const labels = res.data.map(d => new Date(d.RecordTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
             if(healthChart) healthChart.destroy();
@@ -447,13 +447,13 @@
         }
 
         async function loadStats() {
-            const h = await fetch(`../api/reports/health-summary/${resId}`).then(r => r.json());
+            const h = await fetch(`../api.php?endpoint=reports/health-summary/${resId}`).then(r => r.json());
             const s = h.summary;
             document.getElementById('healthStats').innerHTML = `<div class="col"><div class="p-3 bg-white rounded shadow-sm"><h6>平均收縮壓</h6><h3 class="text-danger mb-0">${Math.round(s.AvgSystolic || 0)}</h3></div></div><div class="col"><div class="p-3 bg-white rounded shadow-sm"><h6>平均舒張壓</h6><h3 class="text-warning mb-0">${Math.round(s.AvgDiastolic || 0)}</h3></div></div><div class="col"><div class="p-3 bg-white rounded shadow-sm"><h6>平均心跳</h6><h3 class="text-primary mb-0">${Math.round(s.AvgHeartRate || 0)}</h3></div></div>`;
         }
 
         async function loadMedications() {
-            const res = await fetch(`../api/residents/${resId}/medications`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/medications`).then(r => r.json());
             const role = localStorage.getItem('role') || '';
             const canConfirm = role.includes('護理') || role.includes('醫師') || role.includes('管理');
             document.getElementById('medList').innerHTML = res.data.map(m => `
@@ -468,25 +468,25 @@
 
         async function saveMed() {
             const body = { ResidentID: parseInt(resId), DoctorID: parseInt(localStorage.getItem('staffId') || 1), MedName: document.getElementById('mName').value, Dosage: document.getElementById('mDosage').value, Schedule: document.getElementById('mSchedule').value, OrderContent: document.getElementById('mContent').value || "例行醫囑" };
-            const res = await fetch('../api/medical-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            const res = await fetch('../api.php?endpoint=medical-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
             if (res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('medModal'))?.hide(); loadMedications(); loadMedicalProfile(); }
         }
 
         async function takeMed(medId) {
             if(confirm('確認已完成餵藥？')) {
-                await fetch(`../api/medications/${medId}/status`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ IsTaken: 1, Staff_ID: parseInt(localStorage.getItem('staffId')||1) }) });
+                await fetch(`../api.php?endpoint=medications/${medId}/status`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ IsTaken: 1, Staff_ID: parseInt(localStorage.getItem('staffId')||1) }) });
                 loadMedications();
             }
         }
 
         async function loadLocation() {
-            const l = await fetch(`../api/residents/${resId}/location`).then(r => r.json());
+            const l = await fetch(`../api.php?endpoint=residents/${resId}/location`).then(r => r.json());
             const display = document.getElementById('locDisplay');
             if(l.data) { display.textContent = l.data.Zone; display.className = l.data.Zone === '樓梯間' ? 'h5 text-danger fw-bold blink' : 'h5 text-success fw-bold'; } else display.textContent = '尚無紀錄';
         }
 
         async function loadFamily() {
-            const f = await fetch(`../api/residents/${resId}/family`).then(r => r.json());
+            const f = await fetch(`../api.php?endpoint=residents/${resId}/family`).then(r => r.json());
             document.getElementById('familyList').innerHTML = f.data.map(fm => `<div class="border-bottom py-2 d-flex justify-content-between align-items-center"><div><strong>${fm.FullName}</strong> <small>(${fm.Relationship})</small> ${fm.IsEmergencyContact ? '<span class="badge bg-danger">緊急</span>' : ''}<br><small class="text-muted">${fm.Phone}</small></div><button class="btn btn-sm btn-link" onclick='openFamilyModal(${JSON.stringify(fm)})'>編輯</button></div>`).join('');
         }
 
@@ -502,19 +502,19 @@
         async function saveFamily() {
             const fid = document.getElementById('f_id').value;
             const body = { ResidentID: parseInt(resId), FullName: document.getElementById('famName').value, Relationship: document.getElementById('famRel').value, Phone: document.getElementById('famPhone').value, IsEmergencyContact: document.getElementById('famEmergency').checked ? 1 : 0 };
-            await fetch(fid?`../api/family-members/${fid}`:'../api/family-members', { method: fid?'PUT':'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+            await fetch(fid?`../api.php?endpoint=family-members/${fid}`:'../api.php?endpoint=family-members', { method: fid?'PUT':'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide(); loadFamily();
         }
 
         async function deleteFamily() {
-            if(confirm('確定刪除？')) { await fetch(`../api/family-members/${document.getElementById('f_id').value}`, { method: 'DELETE' }); bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide(); loadFamily(); }
+            if(confirm('確定刪除？')) { await fetch(`../api.php?endpoint=family-members/${document.getElementById('f_id').value}`, { method: 'DELETE' }); bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide(); loadFamily(); }
         }
 
         async function loadOptions() {
             try {
                 const [r, l] = await Promise.all([
-                    fetch('../api/options/rooms').then(res => res.json()),
-                    fetch('../api/options/care-levels').then(res => res.json())
+                    fetch('../api.php?endpoint=options/rooms').then(res => res.json()),
+                    fetch('../api.php?endpoint=options/care-levels').then(res => res.json())
                 ]);
                 // 🚀 只顯示「病房」(IsWard=1)
                 const wardOptions = r.data.filter(rm => rm.IsWard === 1);
@@ -526,7 +526,7 @@
         let currentResidentRaw = null;
         async function openBasicEditModal() {
             await loadOptions();
-            const res = await fetch(`../api/residents/${resId}`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}`).then(r => r.json());
             if(res.data) {
                 currentResidentRaw = res.data;
                 document.getElementById('be_name').value = res.data.FullName;
@@ -553,12 +553,12 @@
                 IdentityNumber: document.getElementById('be_id_num').value,
                 HealthCardNumber: document.getElementById('be_health_num').value
             };
-            const resp = await fetch(`../api/residents/${resId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            const resp = await fetch(`../api.php?endpoint=residents/${resId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
             if(resp.status === 'success') { alert("基本資料已更新"); location.reload(); }
         }
 
         async function openAdvancedEditModal() {
-            const res = await fetch(`../api/residents/${resId}`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}`).then(r => r.json());
             if(res.data) {
                 currentResidentRaw = res.data;
                 document.getElementById('ae_height').value = res.data.Height || '';
@@ -579,12 +579,12 @@
                 CMS: document.getElementById('ae_cms').value, 
                 Allergies: document.getElementById('ae_allergies').value 
             };
-            const resp = await fetch(`../api/residents/${resId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            const resp = await fetch(`../api.php?endpoint=residents/${resId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
             if(resp.status === 'success') { alert("進階資料已更新"); location.reload(); }
         }
 
         async function loadVaccinations() {
-            const res = await fetch(`../api/residents/${resId}/vaccinations`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/vaccinations`).then(r => r.json());
             const container = document.getElementById('vaccineList');
             container.innerHTML = (res.data && res.data.length > 0) ? res.data.map(v => `
                 <div class="border-bottom pb-2 mb-2 position-relative">
@@ -601,32 +601,32 @@
         async function saveVaccine() {
             const body = { ResidentID: parseInt(resId), VaccineType: document.getElementById('v_type').value, Brand: document.getElementById('v_brand').value, DoseDate: document.getElementById('v_date').value, NextDoseDate: document.getElementById('v_next').value || null };
             if(!body.VaccineType || !body.DoseDate) return;
-            const res = await fetch(`../api/residents/${resId}/vaccinations`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/vaccinations`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
             if(res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('vaccineModal')).hide(); loadVaccinations(); }
         }
 
         async function deleteVaccine(id) {
-            if(confirm('確定刪除？')) { await fetch(`../api/vaccinations/${id}`, { method: 'DELETE' }); loadVaccinations(); }
+            if(confirm('確定刪除？')) { await fetch(`../api.php?endpoint=vaccinations/${id}`, { method: 'DELETE' }); loadVaccinations(); }
         }
 
         async function openDiseaseModal() {
-            const resInit = await fetch(`../api/residents/${resId}/health-history-v2`).then(r => r.json());
+            const resInit = await fetch(`../api.php?endpoint=residents/${resId}/health-history-v2`).then(r => r.json());
             document.getElementById('personalThreshold').value = resInit.threshold || 140;
-            const res = await fetch('../api/chronic-diseases').then(r => r.json());
+            const res = await fetch('../api.php?endpoint=chronic-diseases').then(r => r.json());
             document.getElementById('diseaseSelect').innerHTML = res.data.map(d => `<option value="${d.DiseaseID}">${d.DiseaseName}</option>`).join('');
             renderCurrentDiseases();
             bootstrap.Modal.getOrCreateInstance('#diseaseModal').show();
         }
 
         async function saveThreshold() {
-            const current = await fetch(`../api/residents/${resId}`).then(r => r.json());
+            const current = await fetch(`../api.php?endpoint=residents/${resId}`).then(r => r.json());
             const resData = current.data; resData.BpThreshold = parseInt(document.getElementById('personalThreshold').value);
-            await fetch(`../api/residents/${resId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(resData) });
+            await fetch(`../api.php?endpoint=residents/${resId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(resData) });
             alert("已更新"); init();
         }
 
         async function renderCurrentDiseases() {
-            const res = await fetch(`../api/residents/${resId}/medical-profile`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/medical-profile`).then(r => r.json());
             document.getElementById('currentDiseases').innerHTML = (res.diseases && res.diseases.length > 0) ? res.diseases.map(d => `
                 <span class="badge bg-info text-dark border p-2" onclick="removeDisease(${d.ProfileID})">${d.DiseaseName} ✖</span>
             `).join('') : '<span class="text-muted small">尚無紀錄</span>';
@@ -634,16 +634,16 @@
         }
 
         async function addDisease() {
-            await fetch(`../api/residents/${resId}/medical-profile`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ DiseaseID: parseInt(document.getElementById('diseaseSelect').value) }) });
+            await fetch(`../api.php?endpoint=residents/${resId}/medical-profile`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ DiseaseID: parseInt(document.getElementById('diseaseSelect').value) }) });
             renderCurrentDiseases();
         }
 
         async function removeDisease(profileId) {
-            if(confirm('確定移除？')) { await fetch(`../api/residents/medical-profile/${profileId}`, { method: 'DELETE' }); renderCurrentDiseases(); }
+            if(confirm('確定移除？')) { await fetch(`../api.php?endpoint=residents/medical-profile/${profileId}`, { method: 'DELETE' }); renderCurrentDiseases(); }
         }
 
         async function loadNotes() {
-            const res = await fetch(`../api/residents/${resId}/notes`).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/notes`).then(r => r.json());
             const container = document.getElementById('notesContainer');
             container.innerHTML = (res.data && res.data.length > 0) ? res.data.map(n => `
                 <div class="mb-3 pb-2 border-bottom">
@@ -657,13 +657,13 @@
             const content = document.getElementById('newNoteContent').value;
             const staffId = localStorage.getItem('staffId');
             if(!content || !staffId) return;
-            const res = await fetch(`../api/residents/${resId}/notes`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ StaffID: parseInt(staffId), NoteContent: content }) }).then(r => r.json());
+            const res = await fetch(`../api.php?endpoint=residents/${resId}/notes`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ StaffID: parseInt(staffId), NoteContent: content }) }).then(r => r.json());
             if (res.status === 'success') { document.getElementById('newNoteContent').value = ''; loadNotes(); }
         }
 
         async function loadCareLogs() {
             try {
-                const res = await fetch(`../api/daily-care?res_id=${resId}`).then(r => r.json());
+                const res = await fetch(`../api.php?endpoint=daily-care&res_id=${resId}`).then(r => r.json());
                 const tbody = document.getElementById('careLogBody');
                 tbody.innerHTML = (res.data && res.data.length > 0) ? res.data.map(d => `
                     <tr>
@@ -691,7 +691,7 @@
                 WoundNote: document.getElementById('careWound').value || "無"
             };
             if(!document.getElementById('careTime').value) { alert("請選擇時間"); return; }
-            const res = await fetch('../api/daily-care', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            const res = await fetch('../api.php?endpoint=daily-care', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
             if(res.status === 'success') {
                 alert("紀錄已儲存");
                 loadCareLogs();

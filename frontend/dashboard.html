@@ -201,7 +201,7 @@
                 <div class="card shadow-sm p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="fw-bold text-info mb-0">全院給藥執行報表</h4>
-                        <button class="btn btn-outline-info fw-bold" onclick="location.href='../api/reports/medication-export'">📥 匯出 Excel</button>
+                        <button class="btn btn-outline-info fw-bold" onclick="location.href='../api.php?endpoint=reports/medication-export'">📥 匯出 Excel</button>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle small">
@@ -303,7 +303,7 @@
 
         async function loadDashboardStats() {
             try {
-                const res = await fetch('../api/dashboard-stats').then(r => r.json());
+                const res = await fetch('../api.php?endpoint=dashboard-stats').then(r => r.json());
                 document.getElementById('stat_total').textContent = res.total || 0;
                 document.getElementById('stat_alerts').textContent = res.alerts || 0;
             } catch (e) { console.error("統計數據加載失敗", e); }
@@ -311,7 +311,7 @@
 
         // --- 報表管理 ---
         async function loadMedReport() {
-            const r = await fetch('../api/reports/medication-full').then(res=>res.json());
+            const r = await fetch('../api.php?endpoint=reports/medication-full').then(res=>res.json());
             document.getElementById('reportTable').innerHTML = r.data.map(m => `
                 <tr>
                     <td>${new Date(m.CreateTime).toLocaleString()}</td>
@@ -329,9 +329,9 @@
         async function loadOptions() {
             try {
                 const [r, s, l] = await Promise.all([
-                    fetch('../api/options/rooms').then(res => res.json()),
-                    fetch('../api/options/statuses').then(res => res.json()),
-                    fetch('../api/options/care-levels').then(res => res.json())
+                    fetch('../api.php?endpoint=options/rooms').then(res => res.json()),
+                    fetch('../api.php?endpoint=options/statuses').then(res => res.json()),
+                    fetch('../api.php?endpoint=options/care-levels').then(res => res.json())
                 ]);
                 systemOptions.rooms = r.data;
                 systemOptions.statuses = s.data;
@@ -358,7 +358,7 @@
         let allRes = [];
         async function loadRes() {
             if (systemOptions.rooms.length === 0) await loadOptions();
-            const r = await fetch('../api/residents').then(res=>res.json());
+            const r = await fetch('../api.php?endpoint=residents').then(res=>res.json());
             allRes = r.data; renderResTable();
             
             // 同步更新地圖選單
@@ -425,10 +425,10 @@
                 Height: document.getElementById('r_height').value ? parseFloat(document.getElementById('r_height').value) : null,
                 Weight: document.getElementById('r_weight').value ? parseFloat(document.getElementById('r_weight').value) : null
             };
-            await fetch(id?`../api/residents/${id}`:'../api/residents/single', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            await fetch(id?`../api.php?endpoint=residents/${id}`:'../api.php?endpoint=residents/single', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             resModal.hide(); loadRes();
         }
-        async function deleteRes(){ if(confirm('警告：這將徹底從資料庫刪除此住民及所有關聯數據，確定？')) { await fetch(`../api/residents/${document.getElementById('resId').value}`, {method:'DELETE'}); resModal.hide(); loadRes(); } }
+        async function deleteRes(){ if(confirm('警告：這將徹底從資料庫刪除此住民及所有關聯數據，確定？')) { await fetch(`../api.php?endpoint=residents/${document.getElementById('resId').value}`, {method:'DELETE'}); resModal.hide(); loadRes(); } }
 
         // --- 📍 地圖定位邏輯 ---
         let mapPolling = null;
@@ -492,7 +492,7 @@
 
         async function updateMapData() {
             try {
-                const res = await fetch('../api/residents/locations/all').then(r => r.json());
+                const res = await fetch('../api.php?endpoint=residents/locations/all').then(r => r.json());
                 if(res.status === 'success') {
                     renderMarkers(res.data);
                     renderLocationLog(res.data);
@@ -596,7 +596,7 @@
             // alert(`您點擊了：${zoneName} (${lastClickX}, ${lastClickY})`); // 暫時註解，避免干擾，但如果真的沒反應可以取消註解
             
             try {
-                const res = await fetch('../api/residents/locations/all').then(r => r.json());
+                const res = await fetch('../api.php?endpoint=residents/locations/all').then(r => r.json());
                 const peopleInZone = res.data.filter(loc => loc.Zone === zoneName || loc.Zone === zoneName + ' (浴室)');
                 
                 let message = `📍 點擊區域：${zoneName}\n座標：(${lastClickX}, ${lastClickY})\n────────────────\n`;
@@ -628,12 +628,12 @@
                 X_Coordinate: parseFloat(lastClickX),
                 Y_Coordinate: parseFloat(lastClickY)
             };
-            const res = await fetch('../api/sightings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+            const res = await fetch('../api.php?endpoint=sightings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
             if(res.status === 'success') { moveModal.hide(); updateMapData(); }
         }
 
         async function loadStaff() {
-            const r = await fetch('../api/staff').then(res=>res.json());
+            const r = await fetch('../api.php?endpoint=staff').then(res=>res.json());
             document.getElementById('staffTable').innerHTML = r.data.map(s => `
                 <tr>
                     <td class="fw-bold">${s.RealName}</td>
@@ -660,13 +660,13 @@
         async function saveStaff(){
             const id = document.getElementById('s_id').value;
             const body = { RealName:document.getElementById('s_name').value, Username:document.getElementById('s_user').value, Password:document.getElementById('s_pass').value, Role:document.getElementById('s_role').value, IsApproved:parseInt(document.getElementById('s_approved').value) };
-            await fetch(id?`../api/staff/${id}`:'../api/staff', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            await fetch(id?`../api.php?endpoint=staff/${id}`:'../api.php?endpoint=staff', {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             staffModal.hide(); loadStaff();
         }
-        async function deleteStaffConfirm(){ if(confirm('確定刪除此員工帳號？')) { await fetch(`../api/staff/${document.getElementById('s_id').value}`, {method:'DELETE'}); staffModal.hide(); loadStaff(); } }
+        async function deleteStaffConfirm(){ if(confirm('確定刪除此員工帳號？')) { await fetch(`../api.php?endpoint=staff/${document.getElementById('s_id').value}`, {method:'DELETE'}); staffModal.hide(); loadStaff(); } }
 
         async function loadAllFamily() {
-            const r = await fetch('../api/family-members').then(res=>res.json());
+            const r = await fetch('../api.php?endpoint=family-members').then(res=>res.json());
             document.getElementById('famTable').innerHTML = r.data.map(f => `
                 <tr>
                     <td>${f.FullName} ${f.IsEmergencyContact?'<span class="badge bg-danger small">緊急</span>':''}</td>
@@ -690,10 +690,10 @@
         async function saveFamEdit(){
             const id = document.getElementById('f_id').value;
             const body = { ResidentID: parseInt(document.getElementById('f_res_id').value), FullName: document.getElementById('f_name').value, Relationship: document.getElementById('f_rel').value, Phone: document.getElementById('f_phone').value, IsEmergencyContact: document.getElementById('f_emergency').checked ? 1 : 0 };
-            await fetch(`../api/family-members/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            await fetch(`../api.php?endpoint=family-members/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             familyEditModal.hide(); loadAllFamily();
         }
-        async function deleteFamConfirm(){ if(confirm('確定刪除此家屬帳號？')) { await fetch(`../api/family-members/${document.getElementById('f_id').value}`, {method:'DELETE'}); familyEditModal.hide(); loadAllFamily(); } }
+        async function deleteFamConfirm(){ if(confirm('確定刪除此家屬帳號？')) { await fetch(`../api.php?endpoint=family-members/${document.getElementById('f_id').value}`, {method:'DELETE'}); familyEditModal.hide(); loadAllFamily(); } }
 
         function logout(){ localStorage.clear(); location.href='/staff_login.html'; }
         loadRes();
