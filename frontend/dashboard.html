@@ -291,7 +291,7 @@
         
         const role = localStorage.getItem('role'); 
         const user = localStorage.getItem('userName');
-        if(!user) location.href='/staff_login.html';
+        if(!user) location.href='./staff_login.html';
         
         document.getElementById('navUser').textContent = `${role}：${user}`;
         
@@ -378,7 +378,7 @@
                     <td><span class="badge ${getStatusBadge(r.Status)}">${r.Status || '未知'}</span></td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-secondary" onclick='openResModal(${JSON.stringify(r)})'>編輯</button>
-                        <button class="btn btn-sm btn-primary" onclick="location.href='/detail.html?id=${r.ResidentID}'">數據</button>
+                        <button class="btn btn-sm btn-primary" onclick="location.href='./detail.html?id=${r.ResidentID}'">數據</button>
                     </td>
                 </tr>
             `).join('');
@@ -534,7 +534,7 @@
                         <strong>更新：</strong>${new Date(loc.Timestamp).toLocaleTimeString()}<br>
                     </div>
                     <button class="btn btn-sm btn-primary w-100 py-0" style="font-size:12px" 
-                            onclick="location.href='/detail.html?id=${loc.ResidentID}'">📊 查看數據</button>
+                            onclick="location.href='./detail.html?id=${loc.ResidentID}'">📊 查看數據</button>
                 `);
 
                 marker.onclick = (e) => { 
@@ -695,7 +695,7 @@
         }
         async function deleteFamConfirm(){ if(confirm('確定刪除此家屬帳號？')) { await fetch(`../api.php?endpoint=family-members/${document.getElementById('f_id').value}`, {method:'DELETE'}); familyEditModal.hide(); loadAllFamily(); } }
 
-        function logout(){ localStorage.clear(); location.href='/staff_login.html'; }
+        function logout(){ localStorage.clear(); location.href='./staff_login.html'; }
         loadRes();
         loadDashboardStats();
     </script>

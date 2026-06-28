@@ -16,7 +16,7 @@
 
     <div class="auth-card">
         <div class="bg-primary text-white text-center py-4 position-relative">
-            <button class="btn btn-sm btn-outline-light position-absolute top-0 start-0 m-2" onclick="location.href='/'">返回</button>
+            <button class="btn btn-sm btn-outline-light position-absolute top-0 start-0 m-2" onclick="location.href='./'">返回</button>
             <h4 class="mb-0 fw-bold">🩺 醫護人員入口</h4>
         </div>
 
@@ -69,7 +69,7 @@
                 localStorage.setItem('role', res.user_info.Role); // 🚀 統一使用 'role'
                 
                 showToast(`歡迎回來，${res.user_info.RealName}`, 'success'); 
-                setTimeout(()=>location.href='/dashboard.html', 1000); 
+                setTimeout(()=>location.href='./dashboard.html', 1000); 
             }
             else showToast(res.message || res.detail, 'danger');
         });

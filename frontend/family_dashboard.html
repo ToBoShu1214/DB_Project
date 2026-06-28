@@ -225,7 +225,7 @@
         const residentId = localStorage.getItem('targetResident');
         let healthChart = null;
 
-        if(!residentId) { alert("登入失效，請重新登入"); location.href='/family_login.html'; }
+        if(!residentId) { alert("登入失效，請重新登入"); location.href='./family_login.html'; }
 
         window.onload = async function() {
             try {
@@ -407,7 +407,7 @@
             document.getElementById('familyList').innerHTML = f.data.map(fm => `<div class="border-bottom py-2"><strong>${fm.FullName}</strong> <small>(${fm.Relationship})</small> ${fm.IsEmergencyContact ? '<span class="badge bg-danger">緊急</span>' : ''}<br><small class="text-muted">${fm.Phone}</small></div>`).join('');
         }
 
-        function logout() { localStorage.clear(); location.href='/family_login.html'; }
+        function logout() { localStorage.clear(); location.href='./family_login.html'; }
         
         // 每 30 秒自動更新一次定位
         setInterval(loadLocation, 30000);

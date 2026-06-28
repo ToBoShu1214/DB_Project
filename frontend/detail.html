@@ -17,7 +17,7 @@
 
     <nav class="navbar navbar-dark bg-secondary shadow-sm mb-4">
         <div class="container">
-            <a class="navbar-brand" onclick="location.href='/dashboard.html'" style="cursor:pointer">⬅️ 返回主控台</a>
+            <a class="navbar-brand" onclick="location.href='./dashboard.html'" style="cursor:pointer">⬅️ 返回主控台</a>
             <span class="text-white fw-bold" id="residentTitle">醫療數據監控中心</span>
         </div>
     </nav>
@@ -284,7 +284,7 @@
         const resId = urlParams.get('id');
         let healthChart = null;
 
-        if(!resId) { alert("參數錯誤"); location.href='/dashboard.html'; }
+        if(!resId) { alert("參數錯誤"); location.href='./dashboard.html'; }
 
         // 初始化
         window.onload = async function() {
