@@ -1,22 +1,13 @@
-# 改成 3.12 版本
-FROM python:3.12-slim
+FROM php:8.2-apache
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+# 安裝資料庫連線套件
+RUN docker-php-ext-install pdo pdo_mysql
 
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libgl1 \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# 啟用 Apache 路由重寫 (對應 .htaccess) 與 Headers
+RUN a2enmod rewrite headers
 
-WORKDIR /app
+WORKDIR /var/www/html
 
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . /var/www/html/
 
-COPY . /app/
-
-EXPOSE 8000
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+EXPOSE 80

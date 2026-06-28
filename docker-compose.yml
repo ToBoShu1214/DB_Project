@@ -1,16 +1,16 @@
 version: '3.8'
 
 services:
-  # 1. 後端 API 服務 (取代原本老師的 PHP，改用 Python 3.12)
+  # 1. 後端 API 服務 (已改回 PHP 架構)
   backend:
     build: .
     container_name: smartcare_backend
     ports:
-      - "8000:8000"          # 你的 Python API 跑在 8000 port
+      - "8000:80"
     depends_on:
       - db-proj-db
     volumes:
-      - .:/app               # 任意門：存檔即更新
+      - .:/var/www/html
     networks:
       - care-network
 
