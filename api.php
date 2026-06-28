@@ -379,6 +379,61 @@ try {
         response(["status" => "success"]);
     }
     
+    if (match_path('residents/{id}/location', $endpoint, $matches) && $method === 'GET') {
+        $stmt = $pdo->prepare("SELECT Zone, X_Coordinate, Y_Coordinate, Timestamp FROM ResidentSighting WHERE ResidentID=? ORDER BY Timestamp DESC LIMIT 1");
+        $stmt->execute([$matches['id']]);
+        response(["status" => "success", "data" => $stmt->fetch()]);
+    }
+    
+    if (match_path('residents/{id}/family', $endpoint, $matches) && $method === 'GET') {
+        $stmt = $pdo->prepare("SELECT * FROM FamilyMember WHERE ResidentID=?");
+        $stmt->execute([$matches['id']]);
+        response(["status" => "success", "data" => $stmt->fetchAll()]);
+    }
+
+    if (match_path('residents/{id}/vaccinations', $endpoint, $matches)) {
+        if ($method === 'GET') {
+            $stmt = $pdo->prepare("SELECT * FROM VaccinationRecord WHERE ResidentID = ? ORDER BY DoseDate DESC");
+            $stmt->execute([$matches['id']]);
+            response(["status" => "success", "data" => $stmt->fetchAll()]);
+        }
+        if ($method === 'POST') {
+            $stmt = $pdo->prepare("INSERT INTO VaccinationRecord (ResidentID, VaccineType, Brand, DoseDate, NextDoseDate) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$matches['id'], $input['VaccineType'], $input['Brand'], $input['DoseDate'], $input['NextDoseDate']]);
+            response(["status" => "success"]);
+        }
+    }
+    
+    if (match_path('vaccinations/{id}', $endpoint, $matches) && $method === 'DELETE') {
+        $stmt = $pdo->prepare("DELETE FROM VaccinationRecord WHERE VaccineID = ?");
+        $stmt->execute([$matches['id']]);
+        response(["status" => "success"]);
+    }
+    
+    if (match_path('residents/{id}/health-history-v2', $endpoint, $matches) && $method === 'GET') {
+        $stmt = $pdo->prepare("SELECT BpThreshold FROM ResidentIdentity WHERE ResidentID = ?");
+        $stmt->execute([$matches['id']]);
+        $res_info = $stmt->fetch();
+        $threshold = $res_info ? $res_info['BpThreshold'] : 140;
+        
+        $stmt2 = $pdo->prepare("SELECT RecordTime, SystolicBP, DiastolicBP, HeartRate, BloodSugar, BloodOxygen, Notes FROM HealthRecord WHERE ResidentID = ? ORDER BY RecordTime DESC LIMIT 20");
+        $stmt2->execute([$matches['id']]);
+        
+        response(["status" => "success", "threshold" => $threshold, "data" => $stmt2->fetchAll()]);
+    }
+
+    if ($endpoint === 'dashboard-stats' && $method === 'GET') {
+        $care_levels = $pdo->query("SELECT CareLevel, COUNT(*) as count FROM ResidentIdentity GROUP BY CareLevel")->fetchAll();
+        $alerts = $pdo->query("SELECT COUNT(DISTINCT r.ResidentID) as alert_count FROM ResidentIdentity r JOIN HealthRecord h ON r.ResidentID = h.ResidentID WHERE h.SystolicBP > r.BpThreshold AND h.RecordTime > DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetch();
+        $total = $pdo->query("SELECT COUNT(*) as total FROM ResidentIdentity")->fetch();
+        response([
+            "status" => "success",
+            "care_distribution" => $care_levels,
+            "alerts" => $alerts ? $alerts['alert_count'] : 0,
+            "total" => $total ? $total['total'] : 0
+        ]);
+    }
+
     // 預設 404
     response(["status" => "error", "message" => "Endpoint not found: $endpoint"], 404);
 
